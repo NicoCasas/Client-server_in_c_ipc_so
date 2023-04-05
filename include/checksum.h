@@ -30,15 +30,16 @@ typedef struct{
     unsigned char           md_value[32]            ;
 } msg_struct_t;
 
-char* get_msg_to_transmit(unsigned int type,unsigned int n_order,unsigned int len_data,void* data, size_t* len_msg_p);
-char* reconstruir_mensaje(msg_struct_t* msg_struct, size_t* len);
-void bin_cpy(char* dest, char* src, size_t len);
-msg_struct_t* get_msg_struct_from_msg_received(char* msg);
+char*           get_msg_to_transmit                 (unsigned int type,unsigned int n_order,unsigned int len_data, 
+                                                     void* data, size_t* len_msg_p);
+char*           reconstruir_mensaje                 (msg_struct_t* msg_struct, size_t* len);
+msg_struct_t*   get_msg_struct_from_msg_received    (char* msg);
 
-ssize_t receive_msg(int sfd, char* msg);
+ssize_t         receive_msg                         (int sfd, char* msg);
 
-int is_checksum_ok(char* msg, size_t len,unsigned char* md_value);
-void obtener_checksum(const void *mensaje, size_t msg_len, unsigned char* checksum,unsigned int* md_len_p);
+int             is_checksum_ok                      (char* msg, size_t len,unsigned char* md_value);
+void            obtener_checksum                    (const void *mensaje, size_t msg_len, unsigned char* checksum, 
+                                                     unsigned int* md_len_p);
 
 /* 
 Types:

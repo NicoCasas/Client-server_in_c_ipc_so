@@ -9,6 +9,7 @@
 
 ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
 ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p);
+void    bin_cpy(char* dest, char* src, size_t len);
 
 /* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
     size_t n;
