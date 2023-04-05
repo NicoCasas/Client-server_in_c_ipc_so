@@ -18,6 +18,7 @@
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 
 #define CADENA_SIZE 64
@@ -90,10 +91,9 @@ int establecer_comunicacion_con_servidor(void){
     }
 
     memset(&addr,0,sizeof(struct sockaddr_in));
-    
-    addr.sin_family = AF_INET;
+    addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = inet_addr(IPV4_IP);
-    addr.sin_port = htons(IPV4_PORT);
+    addr.sin_port        = htons(IPV4_PORT);
 
     if(connect(sfd,(struct sockaddr*)&addr,sizeof(struct sockaddr_in))==-1){
         perror("Error conectando");

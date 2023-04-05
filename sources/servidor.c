@@ -16,6 +16,10 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
@@ -50,7 +54,7 @@ struct cliente{
 SLIST_HEAD(clientes_head,cliente);
 
 struct clientes_head clientes_A_head;
-
+struct clientes_head clientes_B_head;
 /* SLIST_HEAD(clientes_A_head,cliente);
 SLIST_HEAD(clientes_B_head,cliente);
 SLIST_HEAD(clientes_C_head,cliente); */
@@ -65,10 +69,10 @@ void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 
 #define N_BYTES_TO_RECEIVE               256
 
-struct listener*    crear_y_bindear_inet_socket             (char* ip_dir);//,uint16_t port);
-int                 crear_y_bindear_unix_socket             (const char* socket_path);
-void                agregar_socket_a_epoll                  (int efd, int sfd);
-void                aumentar_limite_de_archivos_abiertos    ();
+int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
+int         crear_y_bindear_unix_socket             (const char* socket_path);
+void        agregar_socket_a_epoll                  (int efd, int sfd);
+void        aumentar_limite_de_archivos_abiertos    ();
 
 
 
@@ -86,9 +90,12 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente B
+#define IPV4_IP                        "127.0.0.1"
+#define IPV4_PORT                            5050
 
-int     establecer_comunicacion_clientes_tipo_B     (const char* msgq_path);
-void    procesar_mensajes_tipo_B                    (int msgq_id);
+int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
+void    process_msg_B                               (char* msg, size_t len, int sfd);
+void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
 ssize_t leer_clientes_tipo_B                        ();
 void    loguear_cliente_tipo_B                      (char* cadena);
 
@@ -115,6 +122,7 @@ char*   obtener_fecha                               ();
 void limpiar_comunicaciones(void){
     //unlink(socket_path) -> Hacer con variable de entorno
     eliminar_lista_clientes(&clientes_A_head);
+    eliminar_lista_clientes(&clientes_B_head);
 }
 
 /**
@@ -137,8 +145,12 @@ unsigned int n_mensajes_tipo_C;
 
 int main(int argc, char* argv[]){
     //struct listener* listener_cliente_A = NULL;
-    int listener_cliente_A_sfd;
     struct sockaddr_un cliente_A_addr;
+    int listener_cliente_A_sfd;
+    
+    struct sockaddr_in cliente_B_addr;
+    int listener_cliente_B_sfd;
+
     char msg[N_BYTES_TO_RECEIVE];
     ssize_t bytes_read;
 
@@ -162,7 +174,7 @@ int main(int argc, char* argv[]){
     //struct clientes_head clientes_C_head;
 
     SLIST_INIT(&clientes_A_head);
-    //SLIST_INIT(&clientes_B_head);
+    SLIST_INIT(&clientes_B_head);
     //SLIST_INIT(&clientes_C_head);
 
     //Para iterar
@@ -180,12 +192,15 @@ int main(int argc, char* argv[]){
 
     //Establecer conexiones
     listener_cliente_A_sfd = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
+    listener_cliente_B_sfd = establecer_comunicacion_clientes_tipo_B(IPV4_IP,IPV4_PORT);
 
     //Agregamos a conexiones a epoll
     agregar_socket_a_epoll(efd,listener_cliente_A_sfd);
+    agregar_socket_a_epoll(efd,listener_cliente_B_sfd);
 
     //Declaramos variables para almacenar direcciones de clientes
     unsigned int cliente_A_len = sizeof(cliente_A_addr);
+    unsigned int cliente_B_len = sizeof(cliente_B_addr);
     int new_sfd;
     
     //Entramos al ciclo while para procesar mensajes
@@ -200,21 +215,34 @@ int main(int argc, char* argv[]){
         /* Recorro los eventos */
         for(int i=0;i<n_fds;i++){
             /* En caso de ser el listener de cliente_A*/
-            
             if(ep_eventos[i].data.fd == listener_cliente_A_sfd){
                 new_sfd = accept(listener_cliente_A_sfd,(struct sockaddr*)&cliente_A_addr,&cliente_A_len);
                 if(new_sfd == -1){
                     perror("Error aceptando cliente_A");
                     exit(1);
                 }
-                //TODO Considerar agregarlo a una lista para posteriormente limpiar estructuras y/o enviar mensaje de desconexion
                 agregar_cliente_a_lista(&clientes_A_head,new_sfd);
                 agregar_socket_a_epoll(efd,new_sfd);
 
                 continue;
             }
 
+            if(ep_eventos[i].data.fd == listener_cliente_B_sfd){
+                new_sfd = accept(listener_cliente_B_sfd,(struct sockaddr*)&cliente_B_addr,&cliente_B_len);
+                if(new_sfd == -1){
+                    perror("Error aceptando cliente_B");
+                    exit(1);
+                }
+                agregar_cliente_a_lista(&clientes_B_head,new_sfd);
+                agregar_socket_a_epoll(efd,new_sfd);
+
+                continue;
+            }
+
+
             /* En caso de ser otro listener */
+
+            /*TODO: Refactorizar todo esto, hago c-p solamente para probar*/
 
             /* En caso de ser de una conexion establecida de un cliente_A, leemos y procesamos el mensaje*/
             cp = SLIST_FIRST(&clientes_A_head);
@@ -237,10 +265,35 @@ int main(int argc, char* argv[]){
                     process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd);        
                     break;
                 }
+                cp = SLIST_NEXT(cp,clientes);
 
             }
             if(cp!=NULL) continue;
 
+            /* En caso de ser de una conexion establecida de un cliente_B, leemos y procesamos el mensaje*/
+            cp = SLIST_FIRST(&clientes_B_head);
+            while(cp!=NULL){
+                if(ep_eventos[i].data.fd == cp->sfd){
+                    memset(msg,0,N_BYTES_TO_RECEIVE);
+                    bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
+                    if(bytes_read == 0){
+                        printf("El cliente se desconecto\n");
+                        epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
+                        close(ep_eventos[i].data.fd);
+                        break;
+                    }
+                    /* 
+                    printf("Recibo: \n");
+                    for(ssize_t i=0; i<bytes_read; i++){
+                        printf("%02hhx",msg[i]);
+                    }
+                    printf("\n"); */
+                    process_msg_B(msg,(size_t)bytes_read,ep_eventos[i].data.fd);        
+                    break;
+                }
+                cp = SLIST_NEXT(cp,clientes);
+            }
+            if(cp!=NULL) continue;            
             
         }
 
@@ -413,35 +466,73 @@ void loguear_cliente_tipo_A(char* cadena){
 //////////////////////////////////////////////////////////////////////
 ///CLIENTE B
 
-int establecer_comunicacion_clientes_tipo_B(const char* msgq_path){
-    key_t key;
-    int   msgq_id;
+int establecer_comunicacion_clientes_tipo_B(const char* ip, uint16_t port){
+    return crear_y_bindear_inet_socket(ip,port);
+}
 
-    crear_archivo_si_no_existe(msgq_path);
-    
-    key = ftok(msgq_path,1);    
-    if(key==-1){
-        perror("Error obteniendo key en servidor");
+int crear_y_bindear_inet_socket(const char* ip, uint16_t port){
+    int in_sfd;
+
+    struct sockaddr_in my_addr;
+    memset(&my_addr,0,sizeof(struct sockaddr_in));
+
+    /*Socket creation*/
+    in_sfd = socket(AF_INET,SOCK_STREAM,0);
+    if(in_sfd==-1){
+        perror("Error creating socket");
+        exit(1);
+    }
+    int enable = 1;
+    if (setsockopt(in_sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+        perror("setsockopt(SO_REUSEADDR) failed");
         exit(1);
     }
     
-    msgq_id = -1;
+    memset(&my_addr,0,sizeof(struct sockaddr_in));
+    my_addr.sin_family = AF_INET;
+    my_addr.sin_addr.s_addr = inet_addr(ip);
+    my_addr.sin_port = htons(port);
 
-    return msgq_id;
+    /*Bind*/
+    if(bind(in_sfd,(struct sockaddr*)&my_addr,sizeof(my_addr))!=0){
+        perror("Error while binding socket: ");
+        exit(1);
+    }
+
+    /*Listen*/
+    if(listen(in_sfd,1)==-1){
+        perror("Error while listening: ");
+        exit(1);
+    }
+
+    return in_sfd;
 }
 
+void process_msg_B(char* msg, size_t len, int sfd){
+    //printf("%s\n",msg);
+    msg_struct_t* msg_struct = get_msg_struct_from_msg_received(msg);
+    char mensaje[MSG_DATA_SIZE+1];
+    memset(mensaje,0,MSG_DATA_SIZE+1);
 
-void procesar_mensajes_tipo_B(int msgq_id){
-    char cadena[CADENA_SIZE];
-    memset(cadena,0,CADENA_SIZE);
-
-    if(leer_clientes_tipo_B(cadena,msgq_id)<=0){
+    if(!is_checksum_ok(msg,len,msg_struct->md_value)){
+        //Do something (or not) to take care off
         return;
     }
 
-    loguear_cliente_tipo_B(cadena);
+    strncpy(mensaje,msg_struct->data,msg_struct->len_data);
+    procesar_mensajes_tipo_B(mensaje, sfd);
+    
+    free(msg_struct->data);
+    free(msg_struct);
+}
+
+void procesar_mensajes_tipo_B(char* mensaje, int sfd){
+    printf("%s\n",mensaje);
+    loguear_cliente_tipo_B(mensaje);
+    sfd++;
     imprimir_cantidad_de_mensajes_recibidos();
 
+    return;
 }
 
 ssize_t leer_clientes_tipo_B(){
