@@ -30,6 +30,11 @@ void    crear_archivo_si_no_existe                  (const char* path);
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a comunicacion en general
 
+typedef union{
+    struct sockaddr_un*      addr_un;
+    struct sockaddr_in*      addr_in;
+    struct sockaddr_in6*     addr_in6;
+}addr_union;
 
 struct listener{
     int                           sfd;
@@ -38,12 +43,6 @@ struct listener{
 };
 SLIST_HEAD(slist_head,listener);
 
-
-typedef union{
-    struct sockaddr_un*      addr_un;
-    struct sockaddr_in*      addr_in;
-    struct sockaddr_in6*     addr_in6;
-}addr_union;
 
 #define MAX_EV                          5000
 #define S_LIMIT_FOPEN                   5050
@@ -61,24 +60,25 @@ void                aumentar_limite_de_archivos_abiertos    ();
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
-int     establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
-void    procesar_mensajes_tipo_A                    (char* mensaje, int fd);
-ssize_t leer_clientes_tipo_A                        (char* cadena, int fd);
-void    loguear_cliente_tipo_A                      (char* cadena);
-void    imprimir_cantidad_de_mensajes_recibidos     ();
+struct listener*    establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
+void                process_msg_A                               (char* msg, size_t len, int sfd);
+void                procesar_mensajes_tipo_A                    (char* mensaje, int fd);
+ssize_t             leer_clientes_tipo_A                        (char* cadena, int fd);
+void                loguear_cliente_tipo_A                      (char* cadena);
+void                imprimir_cantidad_de_mensajes_recibidos     ();
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente B
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* msgq_path);
 void    procesar_mensajes_tipo_B                    (int msgq_id);
-ssize_t leer_clientes_tipo_B                        (char* cadena, int msgq_id);
+ssize_t leer_clientes_tipo_B                        ();
 void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente C
 
-char    establecer_comunicacion_clientes_tipo_C     (const char* shm_path);
+char    establecer_comunicacion_clientes_tipo_C     ();
 void    procesar_mensajes_tipo_C                    ();
 ssize_t leer_clientes_tipo_C                        ();
 void    loguear_cliente_tipo_C                      (char* cadena);
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]){
         for(int i=0;i<n_fds;i++){
             /* En caso de ser el listener de cliente_A*/
             if(ep_eventos[i].data.fd == listener_cliente_A->sfd){
-                new_sfd = accept(listener_cliente_A->sfd,&cliente_A_addr,&cliente_A_len);
+                new_sfd = accept(listener_cliente_A->sfd,(struct sockaddr*)&cliente_A_addr,&cliente_A_len);
                 if(new_sfd == -1){
                     perror("Error aceptando cliente_A");
                     exit(1);
@@ -265,7 +265,7 @@ void process_msg_A(char* msg, size_t len, int sfd){
 //////////////////////////////////////////////////////////////////////
 ///CLIENTE A
 
-int establecer_comunicacion_clientes_tipo_A(const char* socket_path){
+struct listener* establecer_comunicacion_clientes_tipo_A(const char* socket_path){
     return crear_y_bindear_unix_socket(socket_path);
 }
 
@@ -292,6 +292,7 @@ struct listener* crear_y_bindear_unix_socket(const char* socket_path){
     my_addr->sun_family = AF_UNIX;
     strncpy(my_addr->sun_path,socket_path,sizeof(my_addr->sun_path)-1);
 
+    unlink(socket_path);
     /*Bind*/
     if(bind(listener_struct->sfd,(struct sockaddr*)my_addr,sizeof(*my_addr))!=0){
         perror("Error while binding socket: ");
@@ -304,7 +305,7 @@ struct listener* crear_y_bindear_unix_socket(const char* socket_path){
         exit(1);
     }
 
-    listener_struct->addr = my_addr;
+    listener_struct->addr = (addr_union*) my_addr;
 
     return listener_struct;
 }
@@ -313,7 +314,8 @@ struct listener* crear_y_bindear_unix_socket(const char* socket_path){
 void procesar_mensajes_tipo_A(char* mensaje, int sfd){
     printf("%s\n",mensaje);
     loguear_cliente_tipo_A(mensaje);
-
+    sfd++;
+    return;
 }
 
 void loguear_cliente_tipo_A(char* cadena){
@@ -338,11 +340,7 @@ int establecer_comunicacion_clientes_tipo_B(const char* msgq_path){
         exit(1);
     }
     
-    msgq_id = msgget(key,IPC_CREAT | 0660);
-    if(msgq_id==-1){
-        perror("Error obteniendo la msgq en servidor");
-        exit(1);
-    }
+    msgq_id = -1;
 
     return msgq_id;
 }
@@ -361,7 +359,7 @@ void procesar_mensajes_tipo_B(int msgq_id){
 
 }
 
-ssize_t leer_clientes_tipo_B(char* cadena, int msgq_id){
+ssize_t leer_clientes_tipo_B(){
     ssize_t bytes_read=0;
 
     return bytes_read;
@@ -376,7 +374,7 @@ void loguear_cliente_tipo_B(char* cadena){
 //////////////////////////////////////////////////////////////////////
 ///CLIENTE C
 
-char establecer_comunicacion_clientes_tipo_C(const char* shm_path){
+char establecer_comunicacion_clientes_tipo_C(){
 
     return 'a';
 }

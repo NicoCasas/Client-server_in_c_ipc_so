@@ -11,7 +11,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include "../include/variables_entorno.h"
+#include "checksum.h"
+#include "variables_entorno.h"
 
 
 #include <sys/types.h>          /* See NOTES */
@@ -103,6 +104,7 @@ int establecer_comunicacion_con_servidor(void){
 
 void obtener_mensaje(char* cadena){
     leer_cadena_de_command_line(cadena);
+    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
 }
 
 void leer_cadena_de_command_line(char *cadena){
@@ -114,6 +116,18 @@ void leer_cadena_de_command_line(char *cadena){
 }
 
 void enviar_mensaje(char* cadena, int sfd){
+    size_t len;
+    ssize_t bytes_send;
+    char* mensaje = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
+
+    bytes_send = send(sfd,mensaje,len,0);
+    if(bytes_send < 0){
+        perror("Error enviando mensaje");
+        exit(1);
+    }
     printf("Mando: %s\n",cadena);
+    
+    free(mensaje);
+    return;
 }
 
