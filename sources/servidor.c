@@ -21,7 +21,7 @@
 #include <sys/epoll.h>
 #include "checksum.h"
 
-#define CADENA_SIZE                                 MSG_DATA_SIZE
+#define CADENA_SIZE                                 N_BYTES_TO_RECEIVE
 #define FECHA_SIZE                                  20
 
 void    configurar_at_exit_y_sigint                 ();
@@ -66,7 +66,7 @@ void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 #define N_BYTES_TO_RECEIVE               256
 
 struct listener*    crear_y_bindear_inet_socket             (char* ip_dir);//,uint16_t port);
-struct listener*    crear_y_bindear_unix_socket             (const char* socket_path);
+int                 crear_y_bindear_unix_socket             (const char* socket_path);
 void                agregar_socket_a_epoll                  (int efd, int sfd);
 void                aumentar_limite_de_archivos_abiertos    ();
 
@@ -77,7 +77,7 @@ void                aumentar_limite_de_archivos_abiertos    ();
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
-struct listener*    establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
+int                 establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
 void                process_msg_A                               (char* msg, size_t len, int sfd);
 void                procesar_mensajes_tipo_A                    (char* mensaje, int fd);
 ssize_t             leer_clientes_tipo_A                        (char* cadena, int fd);
@@ -136,7 +136,8 @@ unsigned int n_mensajes_tipo_C;
 //////////////////////////////////////MAIN///////////////////////////////////////
 
 int main(int argc, char* argv[]){
-    struct listener* listener_cliente_A = NULL;
+    //struct listener* listener_cliente_A = NULL;
+    int listener_cliente_A_sfd;
     struct sockaddr_un cliente_A_addr;
     char msg[N_BYTES_TO_RECEIVE];
     ssize_t bytes_read;
@@ -178,10 +179,10 @@ int main(int argc, char* argv[]){
     }
 
     //Establecer conexiones
-    listener_cliente_A = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
+    listener_cliente_A_sfd = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
 
     //Agregamos a conexiones a epoll
-    agregar_socket_a_epoll(efd,listener_cliente_A->sfd);
+    agregar_socket_a_epoll(efd,listener_cliente_A_sfd);
 
     //Declaramos variables para almacenar direcciones de clientes
     unsigned int cliente_A_len = sizeof(cliente_A_addr);
@@ -200,8 +201,8 @@ int main(int argc, char* argv[]){
         for(int i=0;i<n_fds;i++){
             /* En caso de ser el listener de cliente_A*/
             
-            if(ep_eventos[i].data.fd == listener_cliente_A->sfd){
-                new_sfd = accept(listener_cliente_A->sfd,(struct sockaddr*)&cliente_A_addr,&cliente_A_len);
+            if(ep_eventos[i].data.fd == listener_cliente_A_sfd){
+                new_sfd = accept(listener_cliente_A_sfd,(struct sockaddr*)&cliente_A_addr,&cliente_A_len);
                 if(new_sfd == -1){
                     perror("Error aceptando cliente_A");
                     exit(1);
@@ -334,13 +335,16 @@ void aumentar_limite_de_archivos_abiertos(){
 void process_msg_A(char* msg, size_t len, int sfd){
     //printf("%s\n",msg);
     msg_struct_t* msg_struct = get_msg_struct_from_msg_received(msg);
+    char mensaje[MSG_DATA_SIZE+1];
+    memset(mensaje,0,MSG_DATA_SIZE+1);
 
     if(!is_checksum_ok(msg,len,msg_struct->md_value)){
         //Do something (or not) to take care off
         return;
     }
 
-    procesar_mensajes_tipo_A(msg_struct->data, sfd);
+    strncpy(mensaje,msg_struct->data,msg_struct->len_data);
+    procesar_mensajes_tipo_A(mensaje, sfd);
     
     free(msg_struct->data);
     free(msg_struct);
@@ -350,49 +354,45 @@ void process_msg_A(char* msg, size_t len, int sfd){
 //////////////////////////////////////////////////////////////////////
 ///CLIENTE A
 
-struct listener* establecer_comunicacion_clientes_tipo_A(const char* socket_path){
+int establecer_comunicacion_clientes_tipo_A(const char* socket_path){
     return crear_y_bindear_unix_socket(socket_path);
 }
 
-struct listener* crear_y_bindear_unix_socket(const char* socket_path){
-    struct listener* listener_struct = malloc(sizeof(struct listener));
-    struct sockaddr_un* my_addr = calloc(1,sizeof(struct sockaddr_un));
-    if(my_addr==NULL || listener_struct == NULL){
-        perror("Error en calloc o malloc creando/bindeando sockets");
-        exit(1);
-    }
+int crear_y_bindear_unix_socket(const char* socket_path){
+    int un_sfd;
+
+    struct sockaddr_un my_addr;
+    memset(&my_addr,0,sizeof(struct sockaddr_un));
 
     /*Socket creation*/
-    listener_struct->sfd = socket(AF_UNIX,SOCK_STREAM,0);
-    if(listener_struct->sfd==-1){
+    un_sfd = socket(AF_UNIX,SOCK_STREAM,0);
+    if(un_sfd==-1){
         perror("Error creating socket");
         exit(1);
     }
     int enable = 1;
-    if (setsockopt(listener_struct->sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+    if (setsockopt(un_sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
         perror("setsockopt(SO_REUSEADDR) failed");
         exit(1);
     }
     
-    my_addr->sun_family = AF_UNIX;
-    strncpy(my_addr->sun_path,socket_path,sizeof(my_addr->sun_path)-1);
+    my_addr.sun_family = AF_UNIX;
+    strncpy(my_addr.sun_path,socket_path,sizeof(my_addr.sun_path)-1);
 
     unlink(socket_path);
     /*Bind*/
-    if(bind(listener_struct->sfd,(struct sockaddr*)my_addr,sizeof(*my_addr))!=0){
+    if(bind(un_sfd,(struct sockaddr*)&my_addr,sizeof(my_addr))!=0){
         perror("Error while binding socket: ");
         exit(1);
     }
 
     /*Listen*/
-    if(listen(listener_struct->sfd,1)==-1){
+    if(listen(un_sfd,1)==-1){
         perror("Error while listening: ");
         exit(1);
     }
 
-    listener_struct->addr = (addr_union*) my_addr;
-    free(my_addr);
-    return listener_struct;
+    return un_sfd;
 }
 
 
