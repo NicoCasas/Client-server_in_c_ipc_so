@@ -1,5 +1,5 @@
 /**
- * Cliente que usa fifo o named pipes
+ * Cliente que usa AF_UNIX sockets
 */
 /* #define _XOPEN_SOURCE 700 */
 #define _GNU_SOURCE

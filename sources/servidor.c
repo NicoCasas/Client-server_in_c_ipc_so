@@ -12,11 +12,14 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/ipc.h>
-#include "../include/variables_entorno.h"
+#include "variables_entorno.h"
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/epoll.h>
+#include "checksum.h"
 
 #define CADENA_SIZE                                 64
 #define FECHA_SIZE                                  20
@@ -26,6 +29,7 @@ void    crear_archivo_si_no_existe                  (const char* path);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a comunicacion en general
+
 
 struct listener{
     int                           sfd;
@@ -41,13 +45,24 @@ typedef union{
     struct sockaddr_in6*     addr_in6;
 }addr_union;
 
+#define MAX_EV                          5000
+#define S_LIMIT_FOPEN                   5050
+#define H_LIMIT_FOPEN                   8000
+
+#define N_BYTES_TO_RECEIVE               256
+
+struct listener*    crear_y_bindear_inet_socket             (char* ip_dir);//,uint16_t port);
+struct listener*    crear_y_bindear_unix_socket             (const char* socket_path);
+void                agregar_socket_a_epoll                  (int efd, int sfd);
+void                aumentar_limite_de_archivos_abiertos    ();
+
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
 int     establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
-void    procesar_mensajes_tipo_A                    (int fd);
+void    procesar_mensajes_tipo_A                    (char* mensaje, int fd);
 ssize_t leer_clientes_tipo_A                        (char* cadena, int fd);
 void    loguear_cliente_tipo_A                      (char* cadena);
 void    imprimir_cantidad_de_mensajes_recibidos     ();
@@ -103,10 +118,12 @@ unsigned int n_mensajes_tipo_C;
 //////////////////////////////////////MAIN///////////////////////////////////////
 
 int main(int argc, char* argv[]){
-    int sfd_sv_cliente_A;
+    struct listener* listener_cliente_A = NULL;
+    struct sockaddr_un cliente_A_addr;
+    char msg[N_BYTES_TO_RECEIVE];
+    ssize_t bytes_read;
 
-    //int sfd_sv_cliente_B;
-    //int sfd_sv_cliente_C;
+    //Referido a carga de variables de entorno
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
 
     if(argc>1){
@@ -116,16 +133,74 @@ int main(int argc, char* argv[]){
     cargar_variables_de_entorno_de_archivo(config_path);
     comprobar_variables_entorno();
 
+    //Referido a limpieza al terminar
     configurar_at_exit_y_sigint();   
 
-    //Establecer conexiones
-    sfd_sv_cliente_A = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
-    //    = establecer_comunicacion_clientes_tipo_B(getenv(MSGQ_PATH_ENV_NAME));
-    //    = establecer_comunicacion_clientes_tipo_C(getenv(SHM_PATH_ENV_NAME ));
+    //Referido a epoll
+    int n_fds;
+    struct epoll_event ep_eventos[MAX_EV];
+    
+    int efd = epoll_create1(0);
+    if(efd == -1){
+        perror("Error creating epoll");
+        exit(1);
+    }
 
+    //Establecer conexiones
+    listener_cliente_A = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
+
+    //Agregamos a conexiones a epoll
+    agregar_socket_a_epoll(efd,listener_cliente_A->sfd);
+
+    //Declaramos variables para almacenar direcciones de clientes
+    unsigned int cliente_A_len = sizeof(cliente_A_addr);
+    int new_sfd;
+    
+    //Entramos al ciclo while para procesar mensajes
     printf("Recibiendo mensajes:\n");
     while(1){
-        procesar_mensajes_tipo_A(sfd_sv_cliente_A);
+        /* Espero eventos */
+        n_fds = epoll_wait(efd,ep_eventos,MAX_EV,-1);
+        if(n_fds == -1){
+            perror("Error esperando en epoll");
+            exit(1);
+        }
+        /* Recorro los eventos */
+        for(int i=0;i<n_fds;i++){
+            /* En caso de ser el listener de cliente_A*/
+            if(ep_eventos[i].data.fd == listener_cliente_A->sfd){
+                new_sfd = accept(listener_cliente_A->sfd,&cliente_A_addr,&cliente_A_len);
+                if(new_sfd == -1){
+                    perror("Error aceptando cliente_A");
+                    exit(1);
+                }
+                //TODO Considerar agregarlo a una lista para posteriormente limpiar estructuras y/o enviar mensaje de desconexion
+                agregar_socket_a_epoll(efd,new_sfd);
+                continue;
+            }
+
+            /* En caso de ser otro listener */
+
+            /* En caso de ser de una conexion establecida, leemos y procesamos el mensaje*/
+            memset(msg,0,N_BYTES_TO_RECEIVE);
+            bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
+            if(bytes_read == 0){
+                printf("El cliente se desconecto\n");
+                epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
+                close(ep_eventos[i].data.fd);
+                break;
+            }
+            /* 
+            printf("Recibo: \n");
+            for(ssize_t i=0; i<bytes_read; i++){
+                printf("%02hhx",msg[i]);
+            }
+            printf("\n"); */
+
+            process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd);
+        }
+
+        //procesar_mensajes_tipo_A();
         //procesar_mensajes_tipo_B(g_msgq_id);
         //procesar_mensajes_tipo_C(shm_p);
     }
@@ -147,11 +222,51 @@ void configurar_at_exit_y_sigint(){
 }
 
 //////////////////////////////////////////////////////////////////////
+///COMUNICACIONES GENERALES
+void agregar_socket_a_epoll(int efd, int sfd){
+    struct epoll_event ev;
+    ev.data.fd = sfd;
+    ev.events = EPOLLIN;
+
+    if(epoll_ctl(efd,EPOLL_CTL_ADD,sfd,&ev)==-1){
+        perror("Error agregando evento a epoll");
+        exit(1);
+    }
+    return;
+
+}
+
+void aumentar_limite_de_archivos_abiertos(){
+    struct rlimit new_limits;
+    new_limits.rlim_cur = S_LIMIT_FOPEN;
+    new_limits.rlim_max = H_LIMIT_FOPEN;
+    if(setrlimit(RLIMIT_NOFILE,&new_limits)==-1){
+        perror("Error seteando limites de numeros de files abiertos");
+        exit(1);
+    }
+}
+
+void process_msg_A(char* msg, size_t len, int sfd){
+    //printf("%s\n",msg);
+    msg_struct_t* msg_struct = get_msg_struct_from_msg_received(msg);
+
+    if(!is_checksum_ok(msg,len,msg_struct->md_value)){
+        //Do something (or not) to take care off
+        return;
+    }
+
+    procesar_mensajes_tipo_A(msg_struct->data, sfd);
+    
+    free(msg_struct->data);
+    free(msg_struct);
+}
+
+
+//////////////////////////////////////////////////////////////////////
 ///CLIENTE A
 
-int establecer_comunicacion_clientes_tipo_A(const char* path_fifo){
-    int sfd;
-    return sfd;
+int establecer_comunicacion_clientes_tipo_A(const char* socket_path){
+    return crear_y_bindear_unix_socket(socket_path);
 }
 
 struct listener* crear_y_bindear_unix_socket(const char* socket_path){
@@ -195,34 +310,10 @@ struct listener* crear_y_bindear_unix_socket(const char* socket_path){
 }
 
 
-void crear_fifo(const char* path_fifo){
-    
-}
+void procesar_mensajes_tipo_A(char* mensaje, int sfd){
+    printf("%s\n",mensaje);
+    loguear_cliente_tipo_A(mensaje);
 
-void procesar_mensajes_tipo_A(int fd){
-    char cadena[CADENA_SIZE];
-    memset(cadena,0,CADENA_SIZE);
-
-    if(leer_clientes_tipo_A(cadena,fd)<=0){
-        return;
-    }
-
-    loguear_cliente_tipo_A(cadena);
-
-}
-
-ssize_t leer_clientes_tipo_A(char* cadena, int fd){
-    ssize_t bytes_read;
-
-    bytes_read = read(fd,cadena,CADENA_SIZE);
-    if(bytes_read==-1){
-        if(errno != EAGAIN){
-            perror("Error leyendo fifo");
-            exit(1);
-        }
-    }
-
-    return bytes_read;
 }
 
 void loguear_cliente_tipo_A(char* cadena){
