@@ -21,7 +21,7 @@
 #include <sys/epoll.h>
 #include "checksum.h"
 
-#define CADENA_SIZE                                 64
+#define CADENA_SIZE                                 MSG_DATA_SIZE
 #define FECHA_SIZE                                  20
 
 void    configurar_at_exit_y_sigint                 ();
@@ -43,6 +43,21 @@ struct listener{
 };
 SLIST_HEAD(slist_head,listener);
 
+struct cliente{
+    int                            sfd;
+    SLIST_ENTRY(cliente)      clientes;
+};
+SLIST_HEAD(clientes_head,cliente);
+
+struct clientes_head clientes_A_head;
+
+/* SLIST_HEAD(clientes_A_head,cliente);
+SLIST_HEAD(clientes_B_head,cliente);
+SLIST_HEAD(clientes_C_head,cliente); */
+
+void agregar_cliente_a_lista    (struct clientes_head* clientes_head_p, int sfd);
+void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
+
 
 #define MAX_EV                          5000
 #define S_LIMIT_FOPEN                   5050
@@ -54,6 +69,8 @@ struct listener*    crear_y_bindear_inet_socket             (char* ip_dir);//,ui
 struct listener*    crear_y_bindear_unix_socket             (const char* socket_path);
 void                agregar_socket_a_epoll                  (int efd, int sfd);
 void                aumentar_limite_de_archivos_abiertos    ();
+
+
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
@@ -96,7 +113,8 @@ char*   obtener_fecha                               ();
  * At exit
 */
 void limpiar_comunicaciones(void){
-
+    //unlink(socket_path) -> Hacer con variable de entorno
+    eliminar_lista_clientes(&clientes_A_head);
 }
 
 /**
@@ -136,6 +154,19 @@ int main(int argc, char* argv[]){
     //Referido a limpieza al terminar
     configurar_at_exit_y_sigint();   
 
+
+    //Referido a listas de clientes
+    //struct clientes_head clientes_A_head;
+    //struct clientes_head clientes_B_head;
+    //struct clientes_head clientes_C_head;
+
+    SLIST_INIT(&clientes_A_head);
+    //SLIST_INIT(&clientes_B_head);
+    //SLIST_INIT(&clientes_C_head);
+
+    //Para iterar
+    struct cliente* cp;
+
     //Referido a epoll
     int n_fds;
     struct epoll_event ep_eventos[MAX_EV];
@@ -168,6 +199,7 @@ int main(int argc, char* argv[]){
         /* Recorro los eventos */
         for(int i=0;i<n_fds;i++){
             /* En caso de ser el listener de cliente_A*/
+            
             if(ep_eventos[i].data.fd == listener_cliente_A->sfd){
                 new_sfd = accept(listener_cliente_A->sfd,(struct sockaddr*)&cliente_A_addr,&cliente_A_len);
                 if(new_sfd == -1){
@@ -175,29 +207,40 @@ int main(int argc, char* argv[]){
                     exit(1);
                 }
                 //TODO Considerar agregarlo a una lista para posteriormente limpiar estructuras y/o enviar mensaje de desconexion
+                agregar_cliente_a_lista(&clientes_A_head,new_sfd);
                 agregar_socket_a_epoll(efd,new_sfd);
+
                 continue;
             }
 
             /* En caso de ser otro listener */
 
-            /* En caso de ser de una conexion establecida, leemos y procesamos el mensaje*/
-            memset(msg,0,N_BYTES_TO_RECEIVE);
-            bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
-            if(bytes_read == 0){
-                printf("El cliente se desconecto\n");
-                epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
-                close(ep_eventos[i].data.fd);
-                break;
-            }
-            /* 
-            printf("Recibo: \n");
-            for(ssize_t i=0; i<bytes_read; i++){
-                printf("%02hhx",msg[i]);
-            }
-            printf("\n"); */
+            /* En caso de ser de una conexion establecida de un cliente_A, leemos y procesamos el mensaje*/
+            cp = SLIST_FIRST(&clientes_A_head);
+            while(cp!=NULL){
+                if(ep_eventos[i].data.fd == cp->sfd){
+                    memset(msg,0,N_BYTES_TO_RECEIVE);
+                    bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
+                    if(bytes_read == 0){
+                        printf("El cliente se desconecto\n");
+                        epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
+                        close(ep_eventos[i].data.fd);
+                        break;
+                    }
+                    /* 
+                    printf("Recibo: \n");
+                    for(ssize_t i=0; i<bytes_read; i++){
+                        printf("%02hhx",msg[i]);
+                    }
+                    printf("\n"); */
+                    process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd);        
+                    break;
+                }
 
-            process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd);
+            }
+            if(cp!=NULL) continue;
+
+            
         }
 
         //procesar_mensajes_tipo_A();
@@ -235,6 +278,48 @@ void agregar_socket_a_epoll(int efd, int sfd){
     return;
 
 }
+
+void agregar_cliente_a_lista(struct clientes_head* clientes_head_p, int sfd){
+    struct cliente* cliente_p = malloc(sizeof(struct cliente));
+    cliente_p->sfd = sfd;
+    SLIST_INSERT_HEAD(clientes_head_p,cliente_p,clientes);
+}
+
+// Esto habia sido para practicar iteracion en lista
+/* 
+void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
+    
+    struct cliente* cp = NULL;
+    struct cliente* cp_aux = NULL;
+
+    cp = SLIST_FIRST(clientes_head_p);
+    while(cp!=NULL){
+        //Keep aux
+        cp_aux = SLIST_NEXT(cp,clientes);
+        //Do stuff
+        SLIST_REMOVE(clientes_head_p,cp,cliente,clientes);
+        free(cp);
+        //Move on
+        cp = cp_aux;
+    }
+
+    return;
+
+}
+ */
+
+//Esto es más óptimo según el man
+void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
+    struct cliente* cp;
+    while (!SLIST_EMPTY(clientes_head_p)) {           /* List Deletion. */
+                cp = SLIST_FIRST(clientes_head_p);
+                SLIST_REMOVE_HEAD(clientes_head_p, clientes);
+                free(cp);
+    }
+    return;
+}
+
+
 
 void aumentar_limite_de_archivos_abiertos(){
     struct rlimit new_limits;
@@ -306,7 +391,7 @@ struct listener* crear_y_bindear_unix_socket(const char* socket_path){
     }
 
     listener_struct->addr = (addr_union*) my_addr;
-
+    free(my_addr);
     return listener_struct;
 }
 
