@@ -55,6 +55,7 @@ SLIST_HEAD(clientes_head,cliente);
 
 struct clientes_head clientes_A_head;
 struct clientes_head clientes_B_head;
+struct clientes_head clientes_C_head;
 /* SLIST_HEAD(clientes_A_head,cliente);
 SLIST_HEAD(clientes_B_head,cliente);
 SLIST_HEAD(clientes_C_head,cliente); */
@@ -69,8 +70,9 @@ void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 
 #define N_BYTES_TO_RECEIVE               256
 
-int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
 int         crear_y_bindear_unix_socket             (const char* socket_path);
+int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
+int         crear_y_bindear_inet6_socket            (const char* ip, uint16_t port);
 void        agregar_socket_a_epoll                  (int efd, int sfd);
 void        aumentar_limite_de_archivos_abiertos    ();
 
@@ -101,9 +103,12 @@ void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente C
+#define IPV6_IP                             "::1" //0:0:0:0:0:0:1
+#define IPV6_PORT                            5060
 
-char    establecer_comunicacion_clientes_tipo_C     ();
-void    procesar_mensajes_tipo_C                    ();
+int     establecer_comunicacion_clientes_tipo_C     (const char* ip, uint16_t port);
+void    process_msg_C                               (char* msg, size_t len, int sfd);
+void    procesar_mensajes_tipo_C                    (char* mensaje, int sfd);
 ssize_t leer_clientes_tipo_C                        ();
 void    loguear_cliente_tipo_C                      (char* cadena);
 
@@ -123,6 +128,7 @@ void limpiar_comunicaciones(void){
     //unlink(socket_path) -> Hacer con variable de entorno
     eliminar_lista_clientes(&clientes_A_head);
     eliminar_lista_clientes(&clientes_B_head);
+    eliminar_lista_clientes(&clientes_C_head);
 }
 
 /**
@@ -151,6 +157,9 @@ int main(int argc, char* argv[]){
     struct sockaddr_in cliente_B_addr;
     int listener_cliente_B_sfd;
 
+    struct sockaddr_in6 cliente_C_addr;
+    int listener_cliente_C_sfd;
+
     char msg[N_BYTES_TO_RECEIVE];
     ssize_t bytes_read;
 
@@ -175,7 +184,7 @@ int main(int argc, char* argv[]){
 
     SLIST_INIT(&clientes_A_head);
     SLIST_INIT(&clientes_B_head);
-    //SLIST_INIT(&clientes_C_head);
+    SLIST_INIT(&clientes_C_head);
 
     //Para iterar
     struct cliente* cp;
@@ -193,14 +202,17 @@ int main(int argc, char* argv[]){
     //Establecer conexiones
     listener_cliente_A_sfd = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
     listener_cliente_B_sfd = establecer_comunicacion_clientes_tipo_B(IPV4_IP,IPV4_PORT);
+    listener_cliente_C_sfd = establecer_comunicacion_clientes_tipo_C(IPV6_IP,IPV6_PORT);
 
     //Agregamos a conexiones a epoll
     agregar_socket_a_epoll(efd,listener_cliente_A_sfd);
     agregar_socket_a_epoll(efd,listener_cliente_B_sfd);
+    agregar_socket_a_epoll(efd,listener_cliente_C_sfd);
 
     //Declaramos variables para almacenar direcciones de clientes
     unsigned int cliente_A_len = sizeof(cliente_A_addr);
     unsigned int cliente_B_len = sizeof(cliente_B_addr);
+    unsigned int cliente_C_len = sizeof(cliente_C_addr);
     int new_sfd;
     
     //Entramos al ciclo while para procesar mensajes
@@ -239,6 +251,17 @@ int main(int argc, char* argv[]){
                 continue;
             }
 
+            if(ep_eventos[i].data.fd == listener_cliente_C_sfd){
+                new_sfd = accept(listener_cliente_C_sfd,(struct sockaddr*)&cliente_C_addr,&cliente_C_len);
+                if(new_sfd == -1){
+                    perror("Error aceptando cliente_C");
+                    exit(1);
+                }
+                agregar_cliente_a_lista(&clientes_C_head,new_sfd);
+                agregar_socket_a_epoll(efd,new_sfd);
+
+                continue;
+            }        
 
             /* En caso de ser otro listener */
 
@@ -295,7 +318,25 @@ int main(int argc, char* argv[]){
             }
             if(cp!=NULL) continue;            
             
+            memset(msg,0,N_BYTES_TO_RECEIVE);
+            bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
+            if(bytes_read == 0){
+                printf("El cliente se desconecto\n");
+                epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
+                close(ep_eventos[i].data.fd);
+                break;
+            }
+            /* 
+            printf("Recibo: \n");
+            for(ssize_t i=0; i<bytes_read; i++){
+                printf("%02hhx",msg[i]);
+            }
+            printf("\n"); */
+            process_msg_C(msg,(size_t)bytes_read,ep_eventos[i].data.fd);
+
+
         }
+
 
         //procesar_mensajes_tipo_A();
         //procesar_mensajes_tipo_B(g_msgq_id);
@@ -550,23 +591,76 @@ void loguear_cliente_tipo_B(char* cadena){
 //////////////////////////////////////////////////////////////////////
 ///CLIENTE C
 
-char establecer_comunicacion_clientes_tipo_C(){
-
-    return 'a';
+int establecer_comunicacion_clientes_tipo_C(const char* ip, uint16_t port){
+    return crear_y_bindear_inet6_socket(ip,port);
 }
 
+int crear_y_bindear_inet6_socket(const char* ip, uint16_t port){
+    int in6_sfd;
 
-void procesar_mensajes_tipo_C(){
-    char cadena[CADENA_SIZE];
-    memset(cadena,0,CADENA_SIZE);
+    struct sockaddr_in6 my_addr;
+    memset(&my_addr,0,sizeof(struct sockaddr_in6));
 
-    if(leer_clientes_tipo_C()<=0){
+    /*Socket creation*/
+    in6_sfd = socket(AF_INET6,SOCK_STREAM,0);
+    if(in6_sfd==-1){
+        perror("Error creating socket");
+        exit(1);
+    }
+    int enable = 1;
+    if (setsockopt(in6_sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+        perror("setsockopt(SO_REUSEADDR) failed");
+        exit(1);
+    }
+    
+    memset(&my_addr,0,sizeof(struct sockaddr_in6));
+    my_addr.sin6_family = AF_INET6;
+    my_addr.sin6_port = htons(port);
+    if(inet_pton(AF_INET6,ip,&my_addr.sin6_addr)==-1){
+        perror("Error convirtiendo direccion ipv6");
+        exit(1);
+    }
+
+    /*Bind*/
+    if(bind(in6_sfd,(struct sockaddr*)&my_addr,sizeof(my_addr))!=0){
+        perror("Error while binding socket: ");
+        exit(1);
+    }
+
+    /*Listen*/
+    if(listen(in6_sfd,1)==-1){
+        perror("Error while listening: ");
+        exit(1);
+    }
+
+    return in6_sfd;
+}
+
+void process_msg_C(char* msg, size_t len, int sfd){
+    //printf("%s\n",msg);
+    msg_struct_t* msg_struct = get_msg_struct_from_msg_received(msg);
+    char mensaje[MSG_DATA_SIZE+1];
+    memset(mensaje,0,MSG_DATA_SIZE+1);
+
+    if(!is_checksum_ok(msg,len,msg_struct->md_value)){
+        //Do something (or not) to take care off
         return;
     }
 
-    loguear_cliente_tipo_C(cadena);
+    strncpy(mensaje,msg_struct->data,msg_struct->len_data);
+    procesar_mensajes_tipo_C(mensaje, sfd);
+    
+    free(msg_struct->data);
+    free(msg_struct);
+}
+
+void procesar_mensajes_tipo_C(char* mensaje, int sfd){
+    printf("%s\n",mensaje);
+    loguear_cliente_tipo_C(mensaje);
+    sfd++;
     imprimir_cantidad_de_mensajes_recibidos();
 
+    return;
 }
 
 ssize_t leer_clientes_tipo_C(){

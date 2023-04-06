@@ -17,15 +17,17 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -Wextra -Werror -Wconversion
 add_executable(Servidor sources/servidor.c sources/variables_entorno.c sources/checksum.c)
 add_executable(Cliente_A sources/cliente_A.c sources/variables_entorno.c sources/checksum.c)
 add_executable(Cliente_B sources/cliente_B.c sources/variables_entorno.c sources/checksum.c)
-
+add_executable(Cliente_C sources/cliente_C.c sources/variables_entorno.c sources/checksum.c)
 
 
 # Headers
 target_include_directories(Servidor PRIVATE "include/")
 target_include_directories(Cliente_A PRIVATE "include/")
 target_include_directories(Cliente_B PRIVATE "include/")
+target_include_directories(Cliente_C PRIVATE "include/")
 
 # Linkeamos librerias
 target_link_libraries(Servidor -lcrypto)
 target_link_libraries(Cliente_A -lcrypto)
 target_link_libraries(Cliente_B -lcrypto)
+target_link_libraries(Cliente_C -lcrypto)
