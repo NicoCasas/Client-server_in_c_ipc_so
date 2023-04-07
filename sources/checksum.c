@@ -176,6 +176,8 @@ ssize_t send_safe(int fd, const void* buf, size_t n, int flags){
  * Returns a pointer to the complete data comming by socket regardless of the size of the message.
  * It's dynamically alocated so it must be freed
  * If sfd disconnects, (void* -1) will be returned and *len_p will be equals to 0
+ * If the message if corrupted i.e. checksum does not match, (void* -1 will be returned) and *len_p 
+ * will be equals to 1
 */
 void* receive_data_msg(int sfd, size_t* len_p){
     char msg_buff[N_BYTES_TO_RECEIVE];
@@ -194,6 +196,12 @@ void* receive_data_msg(int sfd, size_t* len_p){
             return (void*) -1;
         }
         msg_struct = get_msg_struct_from_msg_received(msg_buff);
+
+        if(!is_checksum_ok(msg_buff,(size_t)bytes_received,msg_struct->md_value)){
+        //Do something (or not) to take care off
+            *len_p = 1;
+            return (void *) -1;
+        }   
 
         complete_data = realloc_safe(complete_data,total_size+msg_struct->len_data);
         bin_cpy(complete_data+total_size-1,msg_struct->data,msg_struct->len_data);
