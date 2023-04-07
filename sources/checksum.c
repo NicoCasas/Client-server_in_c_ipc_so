@@ -174,6 +174,7 @@ ssize_t send_safe(int fd, const void* buf, size_t n, int flags){
 /**
  * Returns a pointer to the complete data comming by socket regardless of the size of the message.
  * It's dynamically alocated so it must be freed
+ * If sfd disconnects, (void* -1) will be returned and *len_p will be equals to 0
 */
 void* receive_data_msg(int sfd, size_t* len_p){
     char msg_buff[N_BYTES_TO_RECEIVE];
