@@ -135,8 +135,9 @@ char* reconstruir_mensaje(msg_struct_t* msg_struct, size_t* len){
 /**
  * Sends data via sfd regardless data size, using the checksum.c interface
 */
-void send_data_msg(int sfd, void* data, size_t data_len){
+ssize_t send_data_msg(int sfd, void* data, size_t data_len){
     //char msg_buff[N_BYTES_TO_SEND];
+    ssize_t bytes_sended = 0;
     char* msg_buff = NULL;
     unsigned int count = 0;
     size_t msg_len = 0;
@@ -146,20 +147,20 @@ void send_data_msg(int sfd, void* data, size_t data_len){
 
     while(remaining_data > MSG_DATA_SIZE){
         msg_buff = get_msg_to_transmit(1,count,MSG_DATA_SIZE,send_from,&msg_len);
-        send_safe(sfd,msg_buff,msg_len,0);
+        bytes_sended += send_safe(sfd,msg_buff,msg_len,0);
         count++;
         send_from += MSG_DATA_SIZE; 
         remaining_data -= MSG_DATA_SIZE;
         free(msg_buff);
     };
     
-    if(remaining_data==0) return;
+    if(remaining_data==0) return bytes_sended;
 
     msg_buff = get_msg_to_transmit(0,count,(unsigned int)remaining_data,send_from,&msg_len);
-    send_safe(sfd,msg_buff,msg_len,0);
+    bytes_sended += send_safe(sfd,msg_buff,msg_len,0);
     
     free(msg_buff);
-    return;
+    return bytes_sended;
 }
 
 ssize_t send_safe(int fd, const void* buf, size_t n, int flags){

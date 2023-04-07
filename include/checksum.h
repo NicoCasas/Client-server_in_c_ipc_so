@@ -41,7 +41,8 @@ int             is_checksum_ok                      (char* msg, size_t len,unsig
 void            obtener_checksum                    (const void *mensaje, size_t msg_len, unsigned char* checksum, 
                                                      unsigned int* md_len_p);
 void*           receive_data_msg                    (int sfd, size_t* len_p);
-void            send_data_msg                       (int sfd, void* data, size_t data_len);
+ssize_t         send_data_msg                       (int sfd, void* data, size_t data_len);
+
 /* 
 Types:
     - 0 -> log
