@@ -61,11 +61,6 @@ int main(int argc, char* argv[]){
     sfd = establecer_comunicacion_con_servidor();
 
     //while(1){
-    char mensaje[2000];
-    memset(mensaje,0,2000);
-    size_t data_len = leer_meminfo(mensaje);
-    send_data_msg(sfd,mensaje,data_len);
-
     for(int i=0; i<2; i++){
         memset(cadena,0,CADENA_SIZE);    
         obtener_mensaje(cadena);
