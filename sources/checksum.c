@@ -196,9 +196,9 @@ void* receive_data_msg(int sfd, size_t* len_p){
             return (void*) -1;
         }
         msg_struct = get_msg_struct_from_msg_received(msg_buff);
-
+        
         if(!is_checksum_ok(msg_buff,(size_t)bytes_received,msg_struct->md_value)){
-        //Do something (or not) to take care off
+            //Do something (or not) to take care off
             *len_p = 1;
             return (void *) -1;
         }   
