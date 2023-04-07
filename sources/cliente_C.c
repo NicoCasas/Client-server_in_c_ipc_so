@@ -52,6 +52,9 @@ int main(int argc, char* argv[]){
     char cadena[CADENA_SIZE];
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
     int sfd;
+    char msg[N_BYTES_TO_RECEIVE];
+    msg_struct_t* msg_struct=NULL;
+    char respuesta[MSG_DATA_SIZE+1];
 
     configurar_sigint();
     if(argc>1){
@@ -67,6 +70,16 @@ int main(int argc, char* argv[]){
         memset(cadena,0,CADENA_SIZE);    
         obtener_mensaje(cadena);
         enviar_mensaje(cadena,sfd);
+        
+        memset(msg,0,N_BYTES_TO_RECEIVE);
+        receive_msg(sfd,msg);
+        msg_struct = get_msg_struct_from_msg_received(msg);
+        
+        memset(respuesta,0,MSG_DATA_SIZE+1);
+        strncpy(respuesta,msg_struct->data,msg_struct->len_data);
+        printf("%s\n",respuesta);
+        free(msg_struct->data);
+        free(msg_struct);
     }
     
     return 0;

@@ -109,9 +109,15 @@ void    loguear_cliente_tipo_B                      (char* cadena);
 int     establecer_comunicacion_clientes_tipo_C     (const char* ip, uint16_t port);
 void    process_msg_C                               (char* msg, size_t len, int sfd);
 void    procesar_mensajes_tipo_C                    (char* mensaje, int sfd);
-ssize_t leer_clientes_tipo_C                        ();
 void    loguear_cliente_tipo_C                      (char* cadena);
-
+void    responder_mensajes_tipo_C                   (int sfd);
+float   obtener_carga_normalizada                   ();
+int     obtener_cpu_cores                           ();
+float   obtener_carga                               ();
+int     obtener_memoria_libre                       ();
+void    leer_archivo                                (char* path, char* buffer);
+char*   armar_respuesta_tipo_C                      (float carga_normalizada, int memoria_libre);
+void    enviar_respuesta_tipo_C                     (char* mensaje, int sfd);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a logs
@@ -656,17 +662,109 @@ void process_msg_C(char* msg, size_t len, int sfd){
 
 void procesar_mensajes_tipo_C(char* mensaje, int sfd){
     printf("%s\n",mensaje);
-    loguear_cliente_tipo_C(mensaje);
-    sfd++;
-    imprimir_cantidad_de_mensajes_recibidos();
 
+    loguear_cliente_tipo_C(mensaje);
+    imprimir_cantidad_de_mensajes_recibidos();
+    
+    responder_mensajes_tipo_C(sfd);
+    
     return;
 }
 
-ssize_t leer_clientes_tipo_C(){
-    ssize_t bytes_read = 0;
+void responder_mensajes_tipo_C(int sfd){
+    float carga_normalizada;
+    int memoria_libre;
+    char* respuesta;
+
+    carga_normalizada = obtener_carga_normalizada();
+    memoria_libre = obtener_memoria_libre();
+
+    respuesta = armar_respuesta_tipo_C(carga_normalizada,memoria_libre);
+    enviar_respuesta_tipo_C(respuesta,sfd);
     
-    return bytes_read;
+    free(respuesta);
+    return;
+}
+
+float obtener_carga_normalizada(){
+    float carga = obtener_carga();
+    int n_cores = obtener_cpu_cores();
+    return carga/(float)n_cores;
+}
+#define BUFFER_PROC_SIZE 2048
+
+int obtener_cpu_cores(){
+    char buffer[BUFFER_PROC_SIZE], *match;
+    int n_cores;
+    
+    leer_archivo("/proc/cpuinfo",buffer);
+    match = strstr(buffer, "cpu cores");
+    sscanf(match,"cpu cores : %d",&n_cores);
+    
+    return n_cores;
+}
+
+float obtener_carga(){
+    char buffer[BUFFER_PROC_SIZE];
+    float carga;
+    
+    leer_archivo("/proc/loadavg",buffer);
+    sscanf(buffer,"%f",&carga);
+    
+    return carga;
+}
+
+int obtener_memoria_libre(){
+    char buffer[BUFFER_PROC_SIZE], *match;
+    int mem_libre;
+
+    leer_archivo("/proc/meminfo",buffer);
+    match = strstr(buffer, "MemFree:");
+    sscanf(match, "MemFree: %d",&mem_libre);
+
+    return mem_libre;
+}
+
+void leer_archivo(char* path, char* buffer){
+    FILE* fp;
+    size_t bytes_read;
+
+    fp = fopen(path,"r");
+    if(fp==NULL){
+        perror("Error leyendo archivo");
+        exit(1);
+    }
+    bytes_read = fread(buffer,1,BUFFER_PROC_SIZE,fp);
+    fclose(fp); 
+    
+    if(bytes_read == 0){
+        perror("Archivo vacio");
+        exit(1);
+    }
+
+    buffer[bytes_read] = '\0';
+
+}
+
+char* armar_respuesta_tipo_C(float carga_normalizada, int memoria_libre){
+    char* respuesta = calloc(64,sizeof(char));
+
+    sprintf(respuesta,"Memoria_libre = %d\nCarga_normalizada = %f",memoria_libre,carga_normalizada);
+    return respuesta;
+}
+
+void enviar_respuesta_tipo_C(char* mensaje, int sfd){
+    size_t len_a_enviar = 0;
+    ssize_t bytes_sended;
+    char* a_enviar = get_msg_to_transmit(0,0,(unsigned int)strlen(mensaje),mensaje,&len_a_enviar);
+
+    bytes_sended = send(sfd,a_enviar,len_a_enviar,0);
+    if(bytes_sended==-1){
+        perror("Error enviando respuesta tipo C");
+        exit(1);//TODO ver si comentar esto
+    }
+
+    free(a_enviar);
 }
 
 void loguear_cliente_tipo_C(char* cadena){
