@@ -10,6 +10,7 @@
 ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
 ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p);
 void    bin_cpy(char* dest, char* src, size_t len);
+void*   realloc_safe(void* ptr, size_t size);
 
 /* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
     size_t n;
@@ -130,6 +131,53 @@ char* reconstruir_mensaje(msg_struct_t* msg_struct, size_t* len){
                                  len);
 }
 
+
+/**
+ * Returns a pointer to the complete data comming by socket regardless of the size of the message.
+ * It's dynamically alocated so it must be freed
+*/
+void* receive_data_msg(int sfd, size_t* len_p){
+    char msg_buff[N_BYTES_TO_RECEIVE];
+    char* complete_data = NULL;
+    msg_struct_t* msg_struct = NULL;
+    size_t total_size = 1;
+    ssize_t bytes_received = 0;
+    int last_frame=0;
+
+    while(!last_frame){
+        memset(msg_buff,0,N_BYTES_TO_RECEIVE);
+        bytes_received = receive_msg(sfd,msg_buff);
+        if(bytes_received == 0){
+            break;
+        }
+        
+        msg_struct = get_msg_struct_from_msg_received(msg_buff);
+
+        complete_data = realloc_safe(complete_data,total_size+msg_struct->len_data);
+        bin_cpy(complete_data+total_size-1,msg_struct->data,msg_struct->len_data);
+        total_size+= msg_struct->len_data;
+
+        last_frame = (msg_struct->len_data < MSG_DATA_SIZE) || (msg_struct->type == 0);
+
+        free(msg_struct->data);
+        free(msg_struct);
+    }
+
+    complete_data[total_size-1]='\0';
+    *len_p = total_size;
+
+    return complete_data;
+}
+
+void* realloc_safe(void* ptr, size_t size){
+    void* aux = realloc(ptr,size);
+    if(aux == NULL){
+        perror("Error while reallocating");
+        exit(1);
+    }
+    return aux;
+}
+
 ssize_t receive_msg(int sfd, char* msg){
     unsigned int data_len;
     ssize_t bytes_read_1,bytes_read_2;
@@ -168,3 +216,4 @@ ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p){
     }
     return bytes_read;
 }
+
