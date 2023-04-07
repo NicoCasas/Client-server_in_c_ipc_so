@@ -25,6 +25,7 @@
 void enviar_mensaje(char* cadena, int sfd);
 void obtener_mensaje(char* cadena);
 void configurar_sigint();
+size_t leer_meminfo(char* mensaje);
 
 #define CLIENTE_A_PROMPT "Cliente_A: "
 void leer_cadena_de_command_line(char *cadena);
@@ -60,6 +61,11 @@ int main(int argc, char* argv[]){
     sfd = establecer_comunicacion_con_servidor();
 
     //while(1){
+    char mensaje[2000];
+    memset(mensaje,0,2000);
+    size_t data_len = leer_meminfo(mensaje);
+    send_data_msg(sfd,mensaje,data_len);
+
     for(int i=0; i<2; i++){
         memset(cadena,0,CADENA_SIZE);    
         obtener_mensaje(cadena);
@@ -67,6 +73,17 @@ int main(int argc, char* argv[]){
     }
     
     return 0;
+}
+
+size_t leer_meminfo(char* mensaje){
+    FILE* fp = fopen("/proc/meminfo","r");
+    if(fp==NULL){
+        perror("Error abirendo archivo");
+        exit(1);
+    }
+    size_t bytes_read = fread(mensaje,sizeof(char),2000,fp);
+    fclose(fp);
+    return bytes_read;
 }
 
 void configurar_sigint(){

@@ -221,6 +221,8 @@ int main(int argc, char* argv[]){
     unsigned int cliente_C_len = sizeof(cliente_C_addr);
     int new_sfd;
     
+    char* recibido=NULL;
+    size_t recibido_len=0;
     //Entramos al ciclo while para procesar mensajes
     printf("Recibiendo mensajes:\n");
     while(1){
@@ -277,7 +279,17 @@ int main(int argc, char* argv[]){
             cp = SLIST_FIRST(&clientes_A_head);
             while(cp!=NULL){
                 if(ep_eventos[i].data.fd == cp->sfd){
-                    memset(msg,0,N_BYTES_TO_RECEIVE);
+                    recibido = receive_data_msg(ep_eventos[i].data.fd,&recibido_len);
+                    if(recibido_len==0){
+                        printf("El cliente se deconecto\n");
+                        epoll_ctl(efd,EPOLL_CTL_DEL,ep_eventos[i].data.fd,NULL);
+                        close(ep_eventos[i].data.fd);
+                        break;
+                    }
+                    
+                    printf("len_recibido: %ld\n\n%s\n",recibido_len,recibido);
+                    free(recibido);
+                    /* memset(msg,0,N_BYTES_TO_RECEIVE);
                     bytes_read = receive_msg(ep_eventos[i].data.fd,msg);
                     if(bytes_read == 0){
                         printf("El cliente se desconecto\n");
@@ -285,13 +297,14 @@ int main(int argc, char* argv[]){
                         close(ep_eventos[i].data.fd);
                         break;
                     }
-                    /* 
+                    /
                     printf("Recibo: \n");
                     for(ssize_t i=0; i<bytes_read; i++){
                         printf("%02hhx",msg[i]);
                     }
-                    printf("\n"); */
-                    process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd);        
+                    printf("\n"); 
+                    process_msg_A(msg,(size_t)bytes_read,ep_eventos[i].data.fd); */  
+
                     break;
                 }
                 cp = SLIST_NEXT(cp,clientes);

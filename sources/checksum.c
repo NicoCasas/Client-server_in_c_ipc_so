@@ -11,6 +11,7 @@ ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
 ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p);
 void    bin_cpy(char* dest, char* src, size_t len);
 void*   realloc_safe(void* ptr, size_t size);
+ssize_t send_safe(int fd, const void* buf, size_t n, int flags);
 
 /* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
     size_t n;
@@ -131,6 +132,44 @@ char* reconstruir_mensaje(msg_struct_t* msg_struct, size_t* len){
                                  len);
 }
 
+/**
+ * Sends data via sfd regardless data size, using the checksum.c interface
+*/
+void send_data_msg(int sfd, void* data, size_t data_len){
+    //char msg_buff[N_BYTES_TO_SEND];
+    char* msg_buff = NULL;
+    unsigned int count = 0;
+    size_t msg_len = 0;
+
+    char* send_from = data;
+    size_t remaining_data = data_len;
+
+    while(remaining_data > MSG_DATA_SIZE){
+        msg_buff = get_msg_to_transmit(1,count,MSG_DATA_SIZE,send_from,&msg_len);
+        send_safe(sfd,msg_buff,msg_len,0);
+        count++;
+        send_from += MSG_DATA_SIZE; 
+        remaining_data -= MSG_DATA_SIZE;
+        free(msg_buff);
+    };
+    
+    if(remaining_data==0) return;
+
+    msg_buff = get_msg_to_transmit(0,count,(unsigned int)remaining_data,send_from,&msg_len);
+    send_safe(sfd,msg_buff,msg_len,0);
+    
+    free(msg_buff);
+    return;
+}
+
+ssize_t send_safe(int fd, const void* buf, size_t n, int flags){
+    ssize_t bytes_send = send(fd,buf,n,flags);
+    if(bytes_send<0){
+        perror("Error sending msg");
+        exit(1);
+    }
+    return bytes_send;
+}
 
 /**
  * Returns a pointer to the complete data comming by socket regardless of the size of the message.
@@ -147,15 +186,18 @@ void* receive_data_msg(int sfd, size_t* len_p){
     while(!last_frame){
         memset(msg_buff,0,N_BYTES_TO_RECEIVE);
         bytes_received = receive_msg(sfd,msg_buff);
+    
         if(bytes_received == 0){
-            break;
+            *len_p = 0;
+            return (void*) -1;
         }
-        
         msg_struct = get_msg_struct_from_msg_received(msg_buff);
 
         complete_data = realloc_safe(complete_data,total_size+msg_struct->len_data);
         bin_cpy(complete_data+total_size-1,msg_struct->data,msg_struct->len_data);
         total_size+= msg_struct->len_data;
+
+        printf("Sizeofdata: %d\n",msg_struct->len_data);
 
         last_frame = (msg_struct->len_data < MSG_DATA_SIZE) || (msg_struct->type == 0);
 
@@ -164,7 +206,7 @@ void* receive_data_msg(int sfd, size_t* len_p){
     }
 
     complete_data[total_size-1]='\0';
-    *len_p = total_size;
+    *len_p = total_size-1;
 
     return complete_data;
 }
