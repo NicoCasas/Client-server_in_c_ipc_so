@@ -1,5 +1,5 @@
 // Esto es solamente para que la ide no moleste con no encontrar la estructura de sigaction
-#define _XOPEN_SOURCE 700
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+#include <sys/wait.h>
 
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -125,6 +125,19 @@ void    enviar_respuesta_tipo_C                     (char* mensaje, int sfd);
 void    loguear                                     (char* cadena);
 void    loguear_mensaje_cliente                     (char tipo,char* mensaje);
 char*   obtener_fecha                               ();
+
+//////////////////////////////////////////////////////////////////////////////
+/// Referido a obtener la salida de journalctl
+
+char*   get_output_journalctl_command       (char* journalctl_command);
+void    esperar_hijo                        (pid_t pid);
+void    set_pipe_as_stdout                  (int pipe_fds[2]);
+char**  split_words_safely                  (char* buffer, unsigned int* n_items_p, char* pattern);
+char**  split_args                          (char* command, unsigned int* n_args_p);
+void*   calloc_safe                         (size_t __nmemb, size_t __size);
+void*   realloc_safe                        (void* ptr, size_t size);
+void    free_matrix                         (char** matrix);
+
 
 
 /**
@@ -863,4 +876,188 @@ void crear_archivo_si_no_existe(const char* path){
         exit(1);
     }
     return;
+}
+
+/////////////////////////////////////////////////////////////////////
+///OBTENER SALIDA DE JOURNALCTL
+
+/**
+ * Executes a journalctl command and returns a string with the output. 
+ * The output is dinamically alocated, so it must be freed
+*/
+char* get_output_journalctl_command(char* journalctl_command){
+//    char* comm_arg[64] = {"journalctl", "-u", "ondemand.service",NULL};
+    char** comm_arg = NULL;
+    int pipe_fds [2];   //pipe_fds[0] -> read-end ; [1] -> write end
+    char buff[4096];
+    ssize_t bytes_read;
+    char* cadena_completa=NULL;
+    size_t len_cadena_completa=0;
+    pid_t pid;
+
+    comm_arg = split_args(journalctl_command,NULL);
+    if(strncmp(comm_arg[0],"journalctl",strlen("journalctl"))){
+        perror("Error, comando invalido");
+        free_matrix(comm_arg);
+        return NULL;
+    }
+
+    if(pipe(pipe_fds)==-1){
+        perror("Error creando pipe");
+        exit(1);
+    }
+
+    pid = fork();
+    switch(pid){
+        case -1:
+            perror("Error forkeando");
+            exit(1);
+        
+        case 0:
+            //Child code
+            set_pipe_as_stdout(pipe_fds);
+            if((execvp(comm_arg[0],comm_arg))==-1){
+                perror("Error execvp");
+                exit(1);
+            }
+            break;
+        default:
+            //Parent code
+            close(pipe_fds[1]);
+            memset(buff,0,4096);
+            while((bytes_read=read(pipe_fds[0],buff,4095))!=0){
+                if(bytes_read==-1){
+                    perror("Error");
+                    exit(1);
+                }
+                cadena_completa = realloc_safe(cadena_completa,(size_t)bytes_read+len_cadena_completa+1);
+
+                strncpy(cadena_completa+len_cadena_completa,buff,(size_t)bytes_read);
+                len_cadena_completa += (size_t) bytes_read;
+                cadena_completa[len_cadena_completa] = '\0';
+                
+                memset(buff,0,4096);
+
+            }
+            esperar_hijo(pid);
+    }
+
+    free_matrix(comm_arg);
+    return cadena_completa;
+}
+
+/**
+ * Espera bloqueante a que el proceso hijo termine su ejecucion
+*/
+void esperar_hijo(pid_t pid){
+    int status;
+    if(waitpid(pid,&status,0)==-1){
+        perror("Error esperando");
+        exit(1);
+    }
+}
+
+/**
+ * Closes the read-end pipe fd, and set the write-end pipe fd as the stdout of the
+ * calling process using dup2; 
+*/
+void set_pipe_as_stdout(int pipe_fds[2]){
+    if(close(pipe_fds[0])==-1){
+        perror("Error cerrando fd de pipe");
+        exit(1);
+    }
+    if(dup2(pipe_fds[1],STDOUT_FILENO)==-1){
+        perror("Error seteando el fd como stdout");
+        exit(1);
+    }
+    if(close(pipe_fds[1])==-1){
+        perror("Error cerrando fd de pipe");
+        exit(1);
+    }
+}
+
+/**
+ * Frees a two dimensional array
+*/
+void free_matrix(char** matrix){
+    int i = 0;
+    while(matrix[i]!=NULL){
+        free (matrix[i]);
+        i++;
+    }
+    free(matrix);
+}
+
+/**
+ * Realloc method with error control
+*/
+void* realloc_safe(void* ptr, size_t size){
+    void* aux = realloc(ptr,size);
+    if(aux == NULL){
+        perror("Error while reallocating");
+        exit(1);
+    }
+    return aux;
+}
+
+/**
+ * Calloc method with error control
+*/
+void* calloc_safe(size_t __nmemb, size_t __size){
+    void* aux = calloc(__nmemb,__size);
+    if(aux == NULL){
+        perror("Error while callocing");
+        exit(1);
+    } 
+    return aux;
+}
+
+/**
+ * Returns a pointer to an dynamically allocated 2 dimensional array that contains the argumments splited.
+ * E.g. 
+ *    If command content is:
+ *                      ping google.com.ar -c 6
+ * 
+ *  Then, args[0] = "ping", commands[1] = "google.com.ar", commands[2] = "-c" and commands[3] = "6"
+ *   This function uses strtok, but does not modifies command
+*/
+char** split_args(char* command, unsigned int* n_args_p){
+    return split_words_safely(command, n_args_p, " \t");
+}
+
+
+/**
+ * Returns a pointer to an dynamically allocated 2 dimensional array that contains strings separates 
+ * by any of the characters in pattern.
+ * The number of items splitted is stored in n_items_p
+ * This function uses strtok, but does not modifies buffer
+*/
+char** split_words_safely(char* buffer, unsigned int* n_items_p, char* pattern){
+    char** items=NULL;
+    char* aux=NULL;
+    unsigned int counter = 0;
+
+    //Copy for safe work
+    char* buffer_safe = calloc_safe(strlen(buffer)+1,sizeof(char));
+    strncpy(buffer_safe,buffer,strlen(buffer));
+
+    aux = strtok(buffer_safe,pattern);
+
+    while(aux!=NULL){
+        items = realloc_safe(items,(counter+1) * sizeof(char*));
+        items[counter] = calloc_safe(strlen(aux)+1,sizeof(char));
+        strncpy(items[counter],aux,strlen(aux));
+
+        counter++;
+        aux = strtok(NULL,pattern);
+    }
+    items = realloc_safe(items,(counter+1) * sizeof(char*));
+    items[counter] = NULL;
+
+    if(n_items_p != NULL){
+        *n_items_p = counter;
+    }
+
+    free(buffer_safe);
+    return items;
 }
