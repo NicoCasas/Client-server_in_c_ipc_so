@@ -57,10 +57,9 @@ int main(int argc, char* argv[]){
     char cadena[CADENA_SIZE];
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
     int sfd;
-    char msg[N_BYTES_TO_RECEIVE];
-    msg_struct_t* msg_struct=NULL;
-    char respuesta[MSG_DATA_SIZE+1];
     char* mensaje = NULL;
+    char* respuesta = NULL;
+    size_t len_respuesta=0;
 
     configurar_sigint();
     if(argc>1){
@@ -75,20 +74,26 @@ int main(int argc, char* argv[]){
     for(int i=0; i<2; i++){
         memset(cadena,0,CADENA_SIZE);    
         mensaje = obtener_mensaje();
-        enviar_mensaje(mensaje,sfd);
-        
-        memset(msg,0,N_BYTES_TO_RECEIVE);
-        
-        receive_msg(sfd,msg);
-        msg_struct = get_msg_struct_from_msg_received(msg);
-        
-        memset(respuesta,0,MSG_DATA_SIZE+1);
-        strncpy(respuesta,msg_struct->data,msg_struct->len_data);
+        enviar_mensaje(mensaje,sfd);        
+
+        respuesta = receive_data_msg(sfd,&len_respuesta);
+        if(respuesta == (void*) -1){
+            switch(len_respuesta){
+                case 0: printf("El sv se desconectó\n");break;
+                case 1: printf("Checksum invalido");break;
+                default: break;
+            }
+            continue;
+        }
+
         printf("%s\n",respuesta);
         
         free(mensaje);
-        free(msg_struct->data);
-        free(msg_struct);
+        free(respuesta);
+
+        if(sleep(1)!=0){
+            exit(1);
+        }
     }
     
     return 0;
@@ -224,6 +229,7 @@ void enviar_mensaje(char* cadena, int sfd){
     printf("Mando: %s\n",cadena);
     printf("Largo: %ld\n",strlen(cadena));
     free(a_enviar);
+    
     return;
 }
 
