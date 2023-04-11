@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <checksum.h>
 #include "variables_entorno.h"
+#include "cJSON.h"
 
 
 #include <sys/types.h>          /* See NOTES */
@@ -21,10 +22,13 @@
 #include <arpa/inet.h>
 
 
-#define CADENA_SIZE 64
+#define CADENA_SIZE     64
+#define PID_BUFF_SIZE   16
 
 void enviar_mensaje(char* cadena, int sfd);
-void obtener_mensaje(char* cadena);
+char* obtener_mensaje(void);
+void obtener_string_pid(char* pid_buf, size_t len);
+
 void configurar_sigint();
 
 #define CLIENTE_A_PROMPT "Cliente_C: "
@@ -34,6 +38,7 @@ void leer_cadena_de_command_line(char *cadena);
 #define IPV6_PORT                            5060
 
 int establecer_comunicacion_con_servidor    (void);
+
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a al clean-up at exit
@@ -55,6 +60,7 @@ int main(int argc, char* argv[]){
     char msg[N_BYTES_TO_RECEIVE];
     msg_struct_t* msg_struct=NULL;
     char respuesta[MSG_DATA_SIZE+1];
+    char* mensaje = NULL;
 
     configurar_sigint();
     if(argc>1){
@@ -68,16 +74,19 @@ int main(int argc, char* argv[]){
     //while(1){
     for(int i=0; i<2; i++){
         memset(cadena,0,CADENA_SIZE);    
-        obtener_mensaje(cadena);
-        enviar_mensaje(cadena,sfd);
+        mensaje = obtener_mensaje();
+        enviar_mensaje(mensaje,sfd);
         
         memset(msg,0,N_BYTES_TO_RECEIVE);
+        
         receive_msg(sfd,msg);
         msg_struct = get_msg_struct_from_msg_received(msg);
         
         memset(respuesta,0,MSG_DATA_SIZE+1);
         strncpy(respuesta,msg_struct->data,msg_struct->len_data);
         printf("%s\n",respuesta);
+        
+        free(mensaje);
         free(msg_struct->data);
         free(msg_struct);
     }
@@ -120,10 +129,78 @@ int establecer_comunicacion_con_servidor(void){
     return sfd;
 }
 
+/**
+ * Forma:
+ * {
+ *      "origen":   "Cliente C",
+ *      "n_request": 2,
+ *      "requests":  [
+ *              { "request_1" : mem_free        },
+ *              { "request_2" : norm_load_avg   }
+ *      ] 
+ * }
+*/
+char* obtener_mensaje(void){
+    char* mensaje = NULL;
+    char pid_buff[PID_BUFF_SIZE];
+    
+    cJSON* requests     = NULL;
+    cJSON* request      = NULL;
+    cJSON* request_1    = NULL;
+    cJSON* request_2    = NULL;
+    
 
-void obtener_mensaje(char* cadena){
-    leer_cadena_de_command_line(cadena);
-    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+    cJSON *f1=NULL, *f2=NULL, *f3=NULL;
+    cJSON* monitor = cJSON_CreateObject();
+    
+    if(monitor == NULL){
+        perror("Error creando monitor");
+        exit(1);
+    }
+
+    f1 = cJSON_AddStringToObject(monitor,"origen","Cliente C");
+    obtener_string_pid(pid_buff,PID_BUFF_SIZE);
+    f2 = cJSON_AddStringToObject(monitor,"pid",pid_buff);
+    f3 = cJSON_AddNumberToObject(monitor,"n_requests",2);
+    requests = cJSON_AddArrayToObject(monitor,"requests");
+    
+    if(f1 == NULL || f2 == NULL || f3 == NULL || requests == NULL){
+        perror("Error creando elementos de cJSON");
+        exit(1);
+    }
+
+    // Requests
+    request_1 = cJSON_CreateString("mem_free");
+    request_2 = cJSON_CreateString("norm_load_avg");
+
+    if(request_1 == NULL || request_2 == NULL){
+        perror("Error creando request en cJSON");
+        exit(1);
+    }
+
+    request = cJSON_CreateObject();
+    cJSON_AddItemToObject(request,"request_1",request_1);
+    cJSON_AddItemToArray(requests,request);
+
+    request = cJSON_CreateObject();
+    cJSON_AddItemToObject(request,"request_2",request_2);
+    cJSON_AddItemToArray(requests,request);
+
+    mensaje = cJSON_Print(monitor);
+    if(mensaje==NULL){
+        perror("Error imprimiendo json");
+        exit(1);
+    }
+
+    cJSON_Delete(monitor);
+
+    return mensaje;
+
+}
+
+void obtener_string_pid(char* pid_buf, size_t len){
+    memset(pid_buf,0,len); 
+    sprintf(pid_buf,"%d",getpid());    
 }
 
 void leer_cadena_de_command_line(char *cadena){
@@ -137,16 +214,16 @@ void leer_cadena_de_command_line(char *cadena){
 void enviar_mensaje(char* cadena, int sfd){
     size_t len;
     ssize_t bytes_send;
-    char* mensaje = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
+    char* a_enviar = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
 
-    bytes_send = send(sfd,mensaje,len,0);
+    bytes_send = send(sfd,a_enviar,len,0);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);
     }
     printf("Mando: %s\n",cadena);
-    
-    free(mensaje);
+    printf("Largo: %ld\n",strlen(cadena));
+    free(a_enviar);
     return;
 }
 

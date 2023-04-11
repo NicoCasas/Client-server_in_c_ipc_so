@@ -7,11 +7,11 @@
 #include <sys/socket.h>
 #include "checksum.h"
 
-ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
-ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p);
-void    bin_cpy(char* dest, char* src, size_t len);
-void*   realloc_safe(void* ptr, size_t size);
-ssize_t send_safe(int fd, const void* buf, size_t n, int flags);
+static ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
+static ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p);
+static void    bin_cpy(char* dest, char* src, size_t len);
+static void*   realloc_safe(void* ptr, size_t size);
+static ssize_t send_safe(int fd, const void* buf, size_t n, int flags);
 
 /* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
     size_t n;
