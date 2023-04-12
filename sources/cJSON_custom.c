@@ -82,7 +82,7 @@ cJSON* cJSON_get_header_response_by_server(cJSON** responses_p){
         exit(1);
     }
 
-    f1 = cJSON_AddStringToObject(monitor,"origen","Cliente C");
+    f1 = cJSON_AddStringToObject(monitor,"origen","servidor");
     f2 = cJSON_AddNumberToObject(monitor,"n_responses",0);
     *responses_p = cJSON_AddArrayToObject(monitor,"responses");
     
@@ -92,4 +92,37 @@ cJSON* cJSON_get_header_response_by_server(cJSON** responses_p){
     }
 
     return monitor;
+}
+
+cJSON* cJSON_get_header_request_by_client(cJSON** requests_p, const char* client_name){
+    
+    cJSON *f1=NULL, *f2=NULL;
+    cJSON* monitor = cJSON_CreateObject();
+    
+    if(monitor == NULL){
+        perror("Error creando monitor");
+        exit(1);
+    }
+
+    f1 = cJSON_AddStringToObject(monitor,"origen",client_name);
+    f2 = cJSON_AddNumberToObject(monitor,"n_requests",0);
+    *requests_p = cJSON_AddArrayToObject(monitor,"requests");
+    
+    if(f1 == NULL || f2 == NULL ||*requests_p == NULL){
+        perror("Error creando elementos de cJSON");
+        exit(1);
+    }
+
+    return monitor;
+}
+
+void cJSON_add_pid(cJSON* monitor){
+    cJSON *f1 = NULL;
+
+    f1 = cJSON_AddNumberToObject(monitor,"pid",getpid());
+    if(f1 == NULL){
+        perror("Error creando elementos de cJSON");
+        exit(1);
+    }
+
 }
