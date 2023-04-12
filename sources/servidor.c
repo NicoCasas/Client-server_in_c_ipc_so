@@ -24,6 +24,8 @@
 #include <sys/resource.h>
 #include <sys/epoll.h>
 #include "checksum.h"
+#include "cJSON.h"
+#include "cJSON_custom.h"
 
 #define CADENA_SIZE                                 N_BYTES_TO_RECEIVE
 #define FECHA_SIZE                                  20
@@ -81,6 +83,7 @@ char*       recibir_mensaje                         (int sfd, int efd);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
+//TODO Definir variables de entorno y poner un path como la gente. Se puede usar mktemp
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
@@ -361,6 +364,10 @@ void agregar_cliente_a_lista(struct clientes_head* clientes_head_p, int sfd){
     SLIST_INSERT_HEAD(clientes_head_p,cliente_p,clientes);
 }
 
+/**
+ * Acepta el cliente dado un listener sfd, y lo agrega a las estructuras de epoll y 
+ * lista de cliente correspondiente
+*/
 void aceptar_cliente_y_agregar_a_estructuras(int list_sfd, struct sockaddr* addr_p, unsigned int* addr_len_p, 
                                             int efd, struct clientes_head* ch_p){
     int new_sfd = accept(list_sfd,addr_p,addr_len_p);
@@ -702,17 +709,49 @@ void leer_archivo(char* path, char* buffer){
 
 }
 
+/**
+ * Forma:
+ * {
+ *      "origen":   "servidor",
+ *      "n_responses": ?,
+ *      "responses":  [
+ *              { "mem_free"        : num(mem_free)        },
+ *              { "norm_load_avg"   : num(norm_load_avg)   }
+ *      ] 
+ * }
+*/
 char* armar_respuesta_tipo_C(float carga_normalizada, int memoria_libre){
-    char* respuesta = calloc(64,sizeof(char));
+    char* mensaje = NULL;
+    cJSON* responses = NULL;
+    int n_responses = 0;
 
-    sprintf(respuesta,"Memoria_libre = %d\nCarga_normalizada = %f",memoria_libre,carga_normalizada);
-    return respuesta;
+    cJSON* monitor = cJSON_get_header_response_by_server(&responses);
+
+    // Responses
+    cJSON_add_number_to_array(responses,"mem_free"      ,(double)memoria_libre);
+    cJSON_add_number_to_array(responses,"norm_load_avg" ,(double)carga_normalizada);
+
+    n_responses = cJSON_GetArraySize(responses);
+    cJSON_replace_number_value(monitor,"n_responses",(double)n_responses);
+
+    mensaje = cJSON_Print(monitor);
+    if(mensaje==NULL){
+        perror("Error imprimiendo json");
+        exit(1);
+    }
+
+    cJSON_Delete(monitor);
+
+    return mensaje;
+    
 }
 
 void enviar_respuesta_tipo_C(char* mensaje, int sfd){
-    size_t len_a_enviar = 0;
-    ssize_t bytes_sended;
-    char* a_enviar = get_msg_to_transmit(0,0,(unsigned int)strlen(mensaje),mensaje,&len_a_enviar);
+
+
+    send_data_msg(sfd,mensaje,strlen(mensaje));
+
+    /* char* a_enviar = get_msg_to_transmit(0,0,(unsigned int)strlen(mensaje),mensaje,&len_a_enviar);
 
     bytes_sended = send(sfd,a_enviar,len_a_enviar,0);
     if(bytes_sended==-1){
@@ -720,7 +759,7 @@ void enviar_respuesta_tipo_C(char* mensaje, int sfd){
         exit(1);//TODO ver si comentar esto
     }
 
-    free(a_enviar);
+    free(a_enviar); */
 }
 
 void loguear_cliente_tipo_C(char* cadena){
@@ -991,3 +1030,4 @@ char** split_words_safely(char* buffer, unsigned int* n_items_p, char* pattern){
     free(buffer_safe);
     return items;
 }
+
