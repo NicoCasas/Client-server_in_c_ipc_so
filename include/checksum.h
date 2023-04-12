@@ -1,6 +1,6 @@
 #define S_MAX 64
-#define N_BYTES_TO_SEND                         256
-#define N_BYTES_TO_RECEIVE                      256
+#define N_BYTES_TO_SEND                         512
+#define N_BYTES_TO_RECEIVE                      512
 
 #define DIGEST_NAME                             "sha256"
 #define DIGEST_SIZE                             32
