@@ -78,7 +78,7 @@ int main(int argc, char* argv[]){
         enviar_mensaje(mensaje,sfd);        
 
         respuesta = receive_data_msg(sfd,&len_respuesta);
-        if(respuesta == (void*) -1){
+        if(respuesta == NULL){
             switch(len_respuesta){
                 case 0: printf("El sv se desconectó\n");break;
                 case 1: printf("Checksum invalido");break;
