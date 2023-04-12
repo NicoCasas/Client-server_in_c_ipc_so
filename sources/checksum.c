@@ -207,8 +207,6 @@ void* receive_data_msg(int sfd, size_t* len_p){
         bin_cpy(complete_data+total_size-1,msg_struct->data,msg_struct->len_data);
         total_size+= msg_struct->len_data;
 
-        printf("Sizeofdata: %d\n",msg_struct->len_data);
-
         last_frame = (msg_struct->len_data < MSG_DATA_SIZE) || (msg_struct->type == 0);
 
         free(msg_struct->data);
