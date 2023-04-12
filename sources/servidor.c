@@ -496,9 +496,23 @@ int crear_y_bindear_unix_socket(const char* socket_path){
 
 
 void procesar_mensajes_tipo_A(char* mensaje, int sfd){
-    printf("%s\n",mensaje);
+    char* resultado = NULL;
+    char** requests = NULL;
+
     loguear_cliente_tipo_A(mensaje);
+
+    //TODO armar mensaje error y enviarlo en caso de ser comando invalido
+    requests = cJSON_get_requests(mensaje,NULL);
+    resultado = get_output_journalctl_command(requests[0]);
+    if(resultado == NULL){
+        free(resultado);
+        free_matrix(requests);
+        return;
+    }
+    printf("%s\n",resultado);
     sfd++;
+    free(resultado);
+    free_matrix(requests);
     return;
 }
 
