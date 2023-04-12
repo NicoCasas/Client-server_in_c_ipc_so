@@ -122,7 +122,7 @@ char* obtener_mensaje(void){
     char cadena[CADENA_SIZE];
     
     cJSON* requests = NULL;
-    cJSON* monitor = cJSON_get_header_request_by_client(&requests,"Cliente C");
+    cJSON* monitor = cJSON_get_header_request_by_client(&requests,"Cliente A");
 
     // For testing
     cJSON_add_pid(monitor);
