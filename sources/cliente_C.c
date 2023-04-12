@@ -14,6 +14,7 @@
 #include <checksum.h>
 #include "variables_entorno.h"
 #include "cJSON.h"
+#include "cJSON_custom.h"
 
 
 #include <sys/types.h>          /* See NOTES */
@@ -139,6 +140,7 @@ int establecer_comunicacion_con_servidor(void){
  * {
  *      "origen":   "Cliente C",
  *      "n_request": 2,
+ *      "pid":123,
  *      "requests":  [
  *              { "request_1" : mem_free        },
  *              { "request_2" : norm_load_avg   }
@@ -147,49 +149,18 @@ int establecer_comunicacion_con_servidor(void){
 */
 char* obtener_mensaje(void){
     char* mensaje = NULL;
-    char pid_buff[PID_BUFF_SIZE];
     
-    cJSON* requests     = NULL;
-    cJSON* request      = NULL;
-    cJSON* request_1    = NULL;
-    cJSON* request_2    = NULL;
-    
+    cJSON* requests = NULL;
+    cJSON* monitor = cJSON_get_header_request_by_client(&requests,"Cliente C");
 
-    cJSON *f1=NULL, *f2=NULL, *f3=NULL;
-    cJSON* monitor = cJSON_CreateObject();
-    
-    if(monitor == NULL){
-        perror("Error creando monitor");
-        exit(1);
-    }
-
-    f1 = cJSON_AddStringToObject(monitor,"origen","Cliente C");
-    obtener_string_pid(pid_buff,PID_BUFF_SIZE);
-    f2 = cJSON_AddStringToObject(monitor,"pid",pid_buff);
-    f3 = cJSON_AddNumberToObject(monitor,"n_requests",2);
-    requests = cJSON_AddArrayToObject(monitor,"requests");
-    
-    if(f1 == NULL || f2 == NULL || f3 == NULL || requests == NULL){
-        perror("Error creando elementos de cJSON");
-        exit(1);
-    }
+    // For testing
+    cJSON_add_pid(monitor);
 
     // Requests
-    request_1 = cJSON_CreateString("mem_free");
-    request_2 = cJSON_CreateString("norm_load_avg");
+    cJSON_add_string_to_array(requests,"request_1","mem_free");
+    cJSON_add_string_to_array(requests,"request_2","norm_load_avg");
 
-    if(request_1 == NULL || request_2 == NULL){
-        perror("Error creando request en cJSON");
-        exit(1);
-    }
-
-    request = cJSON_CreateObject();
-    cJSON_AddItemToObject(request,"request_1",request_1);
-    cJSON_AddItemToArray(requests,request);
-
-    request = cJSON_CreateObject();
-    cJSON_AddItemToObject(request,"request_2",request_2);
-    cJSON_AddItemToArray(requests,request);
+    cJSON_replace_number_value(monitor,"n_requests",cJSON_GetArraySize(requests));
 
     mensaje = cJSON_Print(monitor);
     if(mensaje==NULL){
