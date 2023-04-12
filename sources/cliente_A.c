@@ -13,7 +13,8 @@
 #include <signal.h>
 #include "checksum.h"
 #include "variables_entorno.h"
-
+#include "cJSON.h"
+#include "cJSON_custom.h"
 
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
@@ -23,7 +24,7 @@
 #define CADENA_SIZE 64
 
 void enviar_mensaje(char* cadena, int sfd);
-void obtener_mensaje(char* cadena);
+char* obtener_mensaje(void);
 void configurar_sigint();
 size_t leer_meminfo(char* mensaje);
 
@@ -47,9 +48,9 @@ void sigint_handler(int num){
 /////////////////////////////////////MAIN//////////////////////////////////////////
 
 int main(int argc, char* argv[]){
-    char cadena[CADENA_SIZE];
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
     int sfd;
+    char* a_enviar;
 
     configurar_sigint();
     if(argc>1){
@@ -62,9 +63,11 @@ int main(int argc, char* argv[]){
 
     //while(1){
     for(int i=0; i<2; i++){
-        memset(cadena,0,CADENA_SIZE);    
-        obtener_mensaje(cadena);
-        enviar_mensaje(cadena,sfd);
+
+        a_enviar = obtener_mensaje();
+        enviar_mensaje(a_enviar,sfd);
+
+        free(a_enviar);
     }
     
     return 0;
@@ -114,9 +117,34 @@ int establecer_comunicacion_con_servidor(void){
 }
 
 
-void obtener_mensaje(char* cadena){
+char* obtener_mensaje(void){
+    char* mensaje = NULL;
+    char cadena[CADENA_SIZE];
+    
+    cJSON* requests = NULL;
+    cJSON* monitor = cJSON_get_header_request_by_client(&requests,"Cliente C");
+
+    // For testing
+    cJSON_add_pid(monitor);
+
+    // Requests
+    memset(cadena,0,CADENA_SIZE);
     leer_cadena_de_command_line(cadena);
-    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+    cJSON_add_string_to_array(requests,"request_1",cadena);
+
+    // n_request
+    cJSON_replace_number_value(monitor,"n_requests",cJSON_GetArraySize(requests));
+
+    // Impresion
+    mensaje = cJSON_Print(monitor);
+    if(mensaje==NULL){
+        perror("Error imprimiendo json");
+        exit(1);
+    }
+
+    cJSON_Delete(monitor);
+
+    return mensaje;
 }
 
 void leer_cadena_de_command_line(char *cadena){
@@ -125,21 +153,20 @@ void leer_cadena_de_command_line(char *cadena){
         perror("Error leyendo cadena de command line");
         exit(1);
     }
+    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+
 }
 
-void enviar_mensaje(char* cadena, int sfd){
-    size_t len;
+void enviar_mensaje(char* a_enviar, int sfd){
     ssize_t bytes_send;
-    char* mensaje = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
 
-    bytes_send = send(sfd,mensaje,len,0);
+    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar));
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);
     }
-    printf("Mando: %s\n",cadena);
+    printf("Mando: %s\n",a_enviar);
     
-    free(mensaje);
     return;
 }
 

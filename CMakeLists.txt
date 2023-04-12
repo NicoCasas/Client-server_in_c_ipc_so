@@ -15,8 +15,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -Wextra -Werror -Wconversion
 
 # Agregamos ejecutables
 add_executable(Servidor sources/servidor.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c sources/cJSON_custom.c)
-add_executable(Cliente_A sources/cliente_A.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c)
-add_executable(Cliente_B sources/cliente_B.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c)
+add_executable(Cliente_A sources/cliente_A.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c sources/cJSON_custom.c)
+add_executable(Cliente_B sources/cliente_B.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c sources/cJSON_custom.c)
 add_executable(Cliente_C sources/cliente_C.c sources/variables_entorno.c sources/checksum.c sources/cJSON.c sources/cJSON_custom.c)
 
 
