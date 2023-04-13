@@ -32,7 +32,6 @@ void    free_matrix             (char** matrix);
 #define CLIENTE_A_PROMPT "Cliente_A: "
 void leer_cadena_de_command_line(char *cadena);
 
-#define UNIX_PATH   "/tmp/ffalkjdflkjasdnflkjasndflas"
 int establecer_comunicacion_con_servidor    (void);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -61,7 +60,8 @@ int main(int argc, char* argv[]){
         strncpy(config_path,argv[1],CADENA_SIZE);
     }
 
-    cargar_variables_de_entorno_de_archivo(config_path);    
+    cargar_variables_de_entorno_de_archivo(config_path);   
+    comprobar_variables_entorno_A(); 
     //Falta comprobar y cargar las que correspondan
     sfd = establecer_comunicacion_con_servidor();
 
@@ -125,7 +125,7 @@ int establecer_comunicacion_con_servidor(void){
     memset(&addr,0,sizeof(struct sockaddr_un));
     
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path,UNIX_PATH, sizeof(addr.sun_path)-1);
+    strncpy(addr.sun_path,getenv(UNIX_PATH_ENV_NAME), sizeof(addr.sun_path)-1);
 
     if(connect(sfd,&addr,sizeof(struct sockaddr_un))==-1){
         perror("Error conectando");

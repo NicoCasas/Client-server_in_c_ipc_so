@@ -35,8 +35,7 @@ void    configurar_sigint();
 #define CLIENTE_A_PROMPT "Cliente_C: "
 void leer_cadena_de_command_line(char *cadena);
 
-#define IPV6_IP                             "::1" //0:0:0:0:0:0:1
-#define IPV6_PORT                            5060
+
 
 int establecer_comunicacion_con_servidor    (void);
 
@@ -67,7 +66,8 @@ int main(int argc, char* argv[]){
         strncpy(config_path,argv[1],CADENA_SIZE);
     }
 
-    cargar_variables_de_entorno_de_archivo(config_path);    
+    cargar_variables_de_entorno_de_archivo(config_path);
+    comprobar_variables_entorno_C();   
     //Falta comprobar y cargar las que correspondan
     sfd = establecer_comunicacion_con_servidor();
 
@@ -110,6 +110,7 @@ void configurar_sigint(){
 
 int establecer_comunicacion_con_servidor(void){
     int sfd;
+    int port;
     struct sockaddr_in6 addr;
 
     sfd = socket(AF_INET6,SOCK_STREAM,0);
@@ -120,9 +121,10 @@ int establecer_comunicacion_con_servidor(void){
 
     memset(&addr,0,sizeof(struct sockaddr_in6));
     addr.sin6_family = AF_INET6;
-    addr.sin6_port = htons(IPV6_PORT);
+    sscanf(getenv(IPV6_PORT_ENV_NAME),"%d",&port);
+    addr.sin6_port = htons((uint16_t) port);
 
-    if(inet_pton(AF_INET6,IPV6_IP,&addr.sin6_addr)==-1){
+    if(inet_pton(AF_INET6,getenv(IPV6_IP_ENV_NAME),&addr.sin6_addr)==-1){
         perror("Error convirtiendo direccion ipv6");
         exit(1);
     }

@@ -39,8 +39,7 @@ char* obtener_fecha();
 #define CLIENTE_A_PROMPT "Cliente_B: "
 void leer_cadena_de_command_line(char *cadena);
 
-#define IPV4_IP                        "127.0.0.1"
-#define IPV4_PORT                            5050
+
 
 int establecer_comunicacion_con_servidor    (void);
 
@@ -166,6 +165,7 @@ void configurar_sigint(){
 int establecer_comunicacion_con_servidor(void){
     int sfd;
     struct sockaddr_in addr;
+    int port;
 
     sfd = socket(AF_INET,SOCK_STREAM,0);
     if(sfd == -1){
@@ -175,8 +175,9 @@ int establecer_comunicacion_con_servidor(void){
 
     memset(&addr,0,sizeof(struct sockaddr_in));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(IPV4_IP);
-    addr.sin_port        = htons(IPV4_PORT);
+    addr.sin_addr.s_addr = inet_addr(getenv(IPV4_IP_ENV_NAME));
+    sscanf(getenv(IPV4_PORT_ENV_NAME),"%d",&port);
+    addr.sin_port        = htons((uint16_t)port);
 
     if(connect(sfd,(struct sockaddr*)&addr,sizeof(struct sockaddr_in))==-1){
         perror("Error conectando");

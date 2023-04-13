@@ -6,7 +6,7 @@
 #include "../include/variables_entorno.h"
 
 #define CADENA_SIZE     64
-#define REGEX_CONFIG    "^([A-Z_]+=[^ \n][^\n]*\n?)*$"
+#define REGEX_CONFIG    "^([A-Z_][A-Z0-9_]*=[^ \n][^\n]*\n?)*$"
 
 //Definicion de funciones que no quiero que se vean desde afuera
 char*   leer_archivo_dinamicamente                              (const char* path);
@@ -25,34 +25,35 @@ void comprobar_variables_entorno(){
 }
 
 void comprobar_variables_entorno_A(){
-    /* if(getenv(FIFO_PATH_ENV_NAME)==NULL){
-        setenv(FIFO_PATH_ENV_NAME,FIFO_PATH_DEFAULT,0);
-        printf("%s=%s\n",FIFO_PATH_ENV_NAME,FIFO_PATH_DEFAULT);
-    } */
+
+    if(getenv(UNIX_PATH_ENV_NAME)==NULL){
+        setenv(UNIX_PATH_ENV_NAME,UNIX_PATH_DEFAULT,0);
+        printf("%s=%s\n",UNIX_PATH_ENV_NAME,UNIX_PATH_DEFAULT);
+    }
     return;
 }
 
 void comprobar_variables_entorno_B(){
-    /* if(getenv(MSGQ_PATH_ENV_NAME)==NULL){
-        setenv(MSGQ_PATH_ENV_NAME,MSGQ_PATH_DEFAULT,0);
-        printf("%s=%s\n",MSGQ_PATH_ENV_NAME,MSGQ_PATH_DEFAULT);
-    } */
+    if(getenv(IPV4_IP_ENV_NAME)==NULL){
+        setenv(IPV4_IP_ENV_NAME,IPV4_IP_DEFAULT,0);
+        printf("%s=%s\n",IPV4_IP_ENV_NAME,IPV4_IP_DEFAULT);
+    }
+    if(getenv(IPV4_PORT_ENV_NAME)==NULL){
+        setenv(IPV4_PORT_ENV_NAME,IPV4_PORT_DEFAULT,0);
+        printf("%s=%s\n",IPV4_PORT_ENV_NAME,IPV4_PORT_DEFAULT);
+    }
     return;
 }
 
 void comprobar_variables_entorno_C(){
-    /* if(getenv(SHM_PATH_ENV_NAME)==NULL){
-        setenv(SHM_PATH_ENV_NAME,SHM_PATH_DEFAULT,0);
-        printf("%s=%s\n",SHM_PATH_ENV_NAME,SHM_PATH_DEFAULT);
+    if(getenv(IPV6_IP_ENV_NAME)==NULL){
+        setenv(IPV6_IP_ENV_NAME,IPV6_IP_DEFAULT,0);
+        printf("%s=%s\n",IPV6_IP_ENV_NAME,IPV6_IP_DEFAULT);
     }
-    if(getenv(SEM_LECTOR_F_ENV_NAME)==NULL){
-        setenv(SEM_LECTOR_F_ENV_NAME,SEM_LECTOR_FNAME_DEFAULT,0);
-        printf("%s=%s\n",SEM_LECTOR_F_ENV_NAME,SEM_LECTOR_FNAME_DEFAULT);
+    if(getenv(IPV6_PORT_ENV_NAME)==NULL){
+        setenv(IPV6_PORT_ENV_NAME,IPV6_PORT_DEFAULT,0);
+        printf("%s=%s\n",IPV6_PORT_ENV_NAME,IPV6_PORT_DEFAULT);
     }
-    if(getenv(SEM_ESCRITOR_F_ENV_NAME)==NULL){
-        setenv(SEM_ESCRITOR_F_ENV_NAME,SEM_ESCRITOR_FNAME_DEFAULT,0);
-        printf("%s=%s\n",SEM_ESCRITOR_F_ENV_NAME,SEM_ESCRITOR_FNAME_DEFAULT);
-    } */
     return;
 }
 

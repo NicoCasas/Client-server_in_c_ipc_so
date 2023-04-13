@@ -1,24 +1,33 @@
 #define CONFIG_FILE_PATH_DEFAULT                "../config/ipc.conf"
 
-/*ENV NAMES OF PATHS*/
-#define FIFO_PATH_ENV_NAME                               "FIFO_PATH"
-#define MSGQ_PATH_ENV_NAME                               "MSGQ_PATH"
-#define SHM_PATH_ENV_NAME                                 "SHM_PATH"
+/*ENV NAMES PATHS*/
 #define LOG_PATH_ENV_NAME                                 "LOG_PATH"
 
-/*ENV NAMES OF SEMAPHORES FILES*/
-#define SEM_LECTOR_F_ENV_NAME                     "SEM_LECTOR_FNAME"
-#define SEM_ESCRITOR_F_ENV_NAME                 "SEM_ESCRITOR_FNAME"
+/*ENV NAMES UNIX*/
+#define UNIX_PATH_ENV_NAME                               "UNIX_PATH"
+
+/*ENV NAMES IPv4*/
+#define IPV4_IP_ENV_NAME                                   "IPV4_IP"
+#define IPV4_PORT_ENV_NAME                               "IPV4_PORT"
+
+/*ENV NAMES IPv6*/
+#define IPV6_IP_ENV_NAME                                   "IPV6_IP"
+#define IPV6_PORT_ENV_NAME                               "IPV6_PORT"
 
 /*DEFAULT PATHS*/
-#define FIFO_PATH_DEFAULT                                   "./fifo"
-#define MSGQ_PATH_DEFAULT                                   "./msgq"
-#define SHM_PATH_DEFAULT                                     "./shm"
 #define LOG_PATH_DEFAULT                       "../log/mensajes.log"
 
-/*DEFAULT SEMAPHORES FILES*/
-#define SEM_LECTOR_FNAME_DEFAULT                     "/lector_sv_cl"
-#define SEM_ESCRITOR_FNAME_DEFAULT                 "/escritor_cl_sv"
+/*DEFAULT UNIX*/
+#define UNIX_PATH_DEFAULT         "/tmp/ffalkjdflkjasdnflkjasndflas"
+
+/*DEFAULT IPv4*/
+#define IPV4_IP_DEFAULT                                 "127.0.0.1"
+#define IPV4_PORT_DEFAULT                                    "5050"
+
+/*DEFAULT IPv6*/
+#define IPV6_IP_DEFAULT                                       "::1" //0:0:0:0:0:0:1
+#define IPV6_PORT_DEFAULT                                    "5060"
+
 
 /*FUNCTIONS DEFINITION*/
 void comprobar_variables_entorno                        ();
