@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <checksum.h>
 #include <time.h>
+#include <errno.h>
 #include "variables_entorno.h"
 #include "cJSON.h"
 #include "cJSON_custom.h"
@@ -28,6 +29,7 @@
 #define COMPRESSED_FILE_EXTENSION    ".gz"
 #define LEN_COMPRESSED_FILE_EXTENSION   3
 
+void crear_path_archivos_comprimidos(void);
 void enviar_mensaje(char* cadena, int sfd);
 char* obtener_mensaje(void);
 void configurar_sigint();
@@ -67,7 +69,8 @@ int main(int argc, char* argv[]){
         strncpy(config_path,argv[1],CADENA_SIZE);
     }
 
-    cargar_variables_de_entorno_de_archivo(config_path);    
+    cargar_variables_de_entorno_de_archivo(config_path);
+    crear_path_archivos_comprimidos();
     //Falta comprobar y cargar las que correspondan
     sfd = establecer_comunicacion_con_servidor();
 
@@ -95,6 +98,14 @@ int main(int argc, char* argv[]){
     }
     
     return 0;
+}
+
+void crear_path_archivos_comprimidos(void){
+    int flag = mkdir("../compressed_files/",0644);
+    if(flag==-1 && errno!=EEXIST){
+        perror("Error creando archivo");
+        exit(1);
+    }
 }
 
 void procesar_respuesta(char* respuesta, size_t len_respuesta){
