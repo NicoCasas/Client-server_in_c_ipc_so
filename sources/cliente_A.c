@@ -180,7 +180,7 @@ void leer_cadena_de_command_line(char *cadena){
 void enviar_mensaje(char* a_enviar, int sfd){
     ssize_t bytes_send;
 
-    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar),MSG_DONTWAIT);
+    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar),0);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);
