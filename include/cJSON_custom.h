@@ -10,5 +10,6 @@ void    cJSON_replace_number_value          (cJSON* monitor, const char* key, do
 cJSON*  cJSON_get_header_response_by_server (cJSON** responses_p);
 cJSON*  cJSON_get_header_request_by_client  (cJSON** requests_p, const char* client_name);
 char**  cJSON_get_requests                  (char* mensaje, unsigned int* n_requests_p);
+char**  cJSON_get_responses                 (char* mensaje, unsigned int* n_responses_p);
 
 void    cJSON_add_pid                       (cJSON* monitor);

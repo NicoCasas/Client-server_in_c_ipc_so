@@ -7,6 +7,7 @@
 
 static void* realloc_safe(void* ptr, size_t size);
 static void* calloc_safe(size_t nmemb, size_t size);
+static char** cJSON_get_array_items(char* mensaje, unsigned int* n_items_p, const char* array_key, const char* key_begin);
 /////////////////////////////////////////////////////////////////////////////
 /// cJSON extra
 
@@ -136,10 +137,26 @@ void cJSON_add_pid(cJSON* monitor){
  * If n_requests_p is not NULL, stores the number of elements of the array.
 */
 char** cJSON_get_requests(char* mensaje, unsigned int* n_requests_p){
-    char** requests_arr=NULL;
-    char* request = NULL;
+    return cJSON_get_array_items(mensaje,n_requests_p,"requests","request");
+}
+
+//TODO Hacer un metodo generico y de ahi derivar requests y responses
+
+/**
+ * Returns a pointer to a dynamically allocated 2-dimensional array that contains the responses splited.
+ * In other words, each element of the array is an individual responses.
+ * It must be freed.
+ * If n_responses_p is not NULL, stores the number of elements of the array.
+*/
+char** cJSON_get_responses(char* mensaje, unsigned int* n_responses_p){
+    return cJSON_get_array_items(mensaje,n_responses_p,"responses","response");
+}
+
+static char** cJSON_get_array_items(char* mensaje, unsigned int* n_items_p, const char* array_key, const char* key_begin){
+    char** items_arr=NULL;
+    char* item = NULL;
     cJSON* monitor = NULL;
-    cJSON* request_obj  = NULL;
+    cJSON* item_obj  = NULL;
     unsigned int contador = 0;
     char key[KEY_SIZE];
 
@@ -149,39 +166,39 @@ char** cJSON_get_requests(char* mensaje, unsigned int* n_requests_p){
         exit(1);
     }
     
-    cJSON* requests = cJSON_GetObjectItem(monitor,"requests");
-    if(requests == NULL){
-        perror("Error obteniendo requests");
+    cJSON* items = cJSON_GetObjectItem(monitor,array_key);
+    if(items == NULL){
+        perror("Error obteniendo items");
         exit(1);
     }
 
-    cJSON_ArrayForEach(request_obj,requests){
+    cJSON_ArrayForEach(item_obj,items){
         memset(key,0,KEY_SIZE);
-        sprintf(key,"request_%d",contador+1);       //Por alguna razon hice que las requests empezaran en 1
-        cJSON* aux = cJSON_GetObjectItem(request_obj,key); 
+        sprintf(key,"%s_%d",key_begin,contador+1);       //Por alguna razon hice que los items empezaran en 1
+        cJSON* aux = cJSON_GetObjectItem(item_obj,key); 
         if(aux==NULL){
             perror("Error obteniendo item del array");
             exit(1);
         }
 
-        request = cJSON_GetStringValue(aux);
-        requests_arr = realloc_safe(requests_arr,sizeof(char*)*(contador+1));
-        requests_arr[contador] = calloc_safe(strlen(request)+1,sizeof(char));
-        strncpy(requests_arr[contador],request,strlen(request));
+        item = cJSON_GetStringValue(aux);
+        items_arr = realloc_safe(items_arr,sizeof(char*)*(contador+1));
+        items_arr[contador] = calloc_safe(strlen(item)+1,sizeof(char));
+        strncpy(items_arr[contador],item,strlen(item));
 
         contador++;
     }
 
-    requests_arr = realloc_safe(requests_arr,sizeof(char*)*(contador+1));
-    requests_arr[contador] = NULL;
+    items_arr = realloc_safe(items_arr,sizeof(char*)*(contador+1));
+    items_arr[contador] = NULL;
 
     cJSON_Delete(monitor);
 
-    if(n_requests_p!=NULL){
-        *n_requests_p = contador;
+    if(n_items_p!=NULL){
+        *n_items_p = contador;
     }
 
-    return requests_arr;
+    return items_arr;
 }
 
 static void* realloc_safe(void* ptr, size_t size){
