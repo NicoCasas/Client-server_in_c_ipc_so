@@ -553,7 +553,7 @@ char* armar_respuesta_tipo_A(char* response){
 
 void enviar_respuesta_tipo_A(char* respuesta, int sfd){
     ssize_t bytes_sended;
-    bytes_sended = send_data_msg(sfd,respuesta,strlen(respuesta));
+    bytes_sended = send_data_msg(sfd,respuesta,strlen(respuesta),MSG_DONTWAIT);
     if(bytes_sended==-1){
         perror("Error enviando mensaje tipo A");
         exit(1);
@@ -622,7 +622,7 @@ void procesar_mensajes_tipo_B(char* mensaje, int sfd){
     requests = cJSON_get_requests(mensaje,NULL);
     resultado = get_output_journalctl_command(requests[0],MAX_SIZE_CL_B);
     if(resultado == NULL){
-        send_data_msg(sfd,"Error: Comando invalido",strlen("Error: Comando invalido"));
+        send_data_msg(sfd,"Error: Comando invalido",strlen("Error: Comando invalido"),MSG_DONTWAIT);
         free_matrix(requests);
         return;    
     }
@@ -848,7 +848,7 @@ char* armar_respuesta_tipo_C(float carga_normalizada, int memoria_libre){
 void enviar_respuesta_tipo_C(char* mensaje, int sfd){
     ssize_t bytes_sended;
 
-    bytes_sended = send_data_msg(sfd,mensaje,strlen(mensaje));
+    bytes_sended = send_data_msg(sfd,mensaje,strlen(mensaje),MSG_DONTWAIT);
     if(bytes_sended == 0){
         printf("El cliente se desconecto\n");
     }

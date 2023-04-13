@@ -232,7 +232,7 @@ void enviar_mensaje(char* cadena, int sfd){
     ssize_t bytes_send;
     char* mensaje = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
 
-    bytes_send = send(sfd,mensaje,len,0);
+    bytes_send = send(sfd,mensaje,len,MSG_DONTWAIT);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);

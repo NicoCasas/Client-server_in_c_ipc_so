@@ -188,7 +188,7 @@ void enviar_mensaje(char* cadena, int sfd){
     ssize_t bytes_send;
     char* a_enviar = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
 
-    bytes_send = send(sfd,a_enviar,len,0);
+    bytes_send = send(sfd,a_enviar,len,MSG_DONTWAIT);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);
