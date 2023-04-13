@@ -83,8 +83,6 @@ char*       recibir_mensaje                         (int sfd, int efd);
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
 //TODO Definir variables de entorno y poner un path como la gente. Se puede usar mktemp
-#define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
-//#define SOCKET_PATH_A_ENV_NAME
 
 #define MAX_SIZE_CL_A (1<<28)  // 256 MB
 
@@ -98,8 +96,6 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente B
-#define IPV4_IP                        "127.0.0.1"
-#define IPV4_PORT                            5050
 
 #define MAX_SIZE_CL_B (1<<30)  // 1 GB
 
@@ -112,8 +108,6 @@ void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente C
-#define IPV6_IP                             "::1" //0:0:0:0:0:0:1
-#define IPV6_PORT                            5060
 
 int     establecer_comunicacion_clientes_tipo_C     (const char* ip, uint16_t port);
 void    procesar_mensajes_tipo_C                    (char* mensaje, int sfd);
@@ -224,9 +218,14 @@ int main(int argc, char* argv[]){
     }
 
     //Establecer conexiones
-    listener_cliente_A_sfd = establecer_comunicacion_clientes_tipo_A(UNIX_SOCKET_PATH);
-    listener_cliente_B_sfd = establecer_comunicacion_clientes_tipo_B(IPV4_IP,IPV4_PORT);
-    listener_cliente_C_sfd = establecer_comunicacion_clientes_tipo_C(IPV6_IP,IPV6_PORT);
+    int ipv4_port;
+    int ipv6_port;
+    sscanf(getenv(IPV4_PORT_ENV_NAME),"%d",&ipv4_port);
+    sscanf(getenv(IPV6_PORT_ENV_NAME),"%d",&ipv6_port);
+    
+    listener_cliente_A_sfd = establecer_comunicacion_clientes_tipo_A(getenv(UNIX_PATH_ENV_NAME));
+    listener_cliente_B_sfd = establecer_comunicacion_clientes_tipo_B(getenv(IPV4_IP_ENV_NAME),(uint16_t)ipv4_port);
+    listener_cliente_C_sfd = establecer_comunicacion_clientes_tipo_C(getenv(IPV6_IP_ENV_NAME),(uint16_t)ipv6_port);
 
     //Agregamos a conexiones a epoll
     agregar_socket_a_epoll(efd,listener_cliente_A_sfd);
