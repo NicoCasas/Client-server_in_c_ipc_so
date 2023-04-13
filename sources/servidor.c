@@ -86,7 +86,7 @@ char*       recibir_mensaje                         (int sfd, int efd);
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
-#define MAX_SIZE_CL_A 1048576  // 1GB
+#define MAX_SIZE_CL_A (1<<28)  // 256 MB
 
 int                 establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
 void                procesar_mensajes_tipo_A                    (char* mensaje, int fd);
@@ -101,7 +101,7 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 #define IPV4_IP                        "127.0.0.1"
 #define IPV4_PORT                            5050
 
-#define MAX_SIZE_CL_B 2097152  // 2GB
+#define MAX_SIZE_CL_B (1<<30)  // 1 GB
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
 void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
