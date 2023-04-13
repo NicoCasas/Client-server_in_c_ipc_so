@@ -26,11 +26,11 @@
 #define CADENA_SIZE     64
 #define PID_BUFF_SIZE   16
 
-void enviar_mensaje(char* cadena, int sfd);
-char* obtener_mensaje(void);
-void obtener_string_pid(char* pid_buf, size_t len);
+void    enviar_mensaje      (char* cadena, int sfd);
+char*   obtener_mensaje     (void);
+void    imprimir_resumen    (char* respuesta);
 
-void configurar_sigint();
+void    configurar_sigint();
 
 #define CLIENTE_A_PROMPT "Cliente_C: "
 void leer_cadena_de_command_line(char *cadena);
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]){
             continue;
         }
 
-        printf("%s\n",respuesta);
+        imprimir_resumen(respuesta);
         
         free(mensaje);
         free(respuesta);
@@ -174,10 +174,6 @@ char* obtener_mensaje(void){
 
 }
 
-void obtener_string_pid(char* pid_buf, size_t len){
-    memset(pid_buf,0,len); 
-    sprintf(pid_buf,"%d",getpid());    
-}
 
 void leer_cadena_de_command_line(char *cadena){
     printf(CLIENTE_A_PROMPT);
@@ -197,10 +193,54 @@ void enviar_mensaje(char* cadena, int sfd){
         perror("Error enviando mensaje");
         exit(1);
     }
-    printf("Mando: %s\n",cadena);
-    printf("Largo: %ld\n",strlen(cadena));
+    //printf("Mando: %s\n",cadena);
+    //printf("Largo: %ld\n",strlen(cadena));
     free(a_enviar);
     
     return;
 }
 
+void imprimir_resumen(char* respuesta){
+    cJSON* monitor = NULL;
+    cJSON* responses = NULL;
+    cJSON* aux = NULL;
+    
+    double norm_load_avg = 0;
+    int mem_free = 0;
+
+    monitor = cJSON_Parse(respuesta);
+    if(monitor == NULL){
+        perror("Error parseando respuesta");
+        exit(1);
+    }
+
+    responses = cJSON_GetObjectItem(monitor,"responses");
+    if(responses == NULL){
+        perror("Error obteniendo array");
+        exit(1);
+    }
+
+    aux = cJSON_GetArrayItem(responses,0);
+    if(aux == NULL){
+        perror("Error obteniendo item de array");
+        exit(1);
+    }
+    aux = cJSON_GetObjectItem(aux,"mem_free");
+    mem_free = (int) cJSON_GetNumberValue(aux);
+
+    aux = cJSON_GetArrayItem(responses,1);
+    if(aux == NULL){
+        perror("Error obteniendo item de array");
+        exit(1);
+    }
+    aux = cJSON_GetObjectItem(aux,"norm_load_avg");
+    norm_load_avg = cJSON_GetNumberValue(aux);
+
+    cJSON_Delete(monitor);
+
+    printf("Memoria libre:\t\t%d\n",mem_free);
+    printf("Carga normalizada:\t%f\n\n",norm_load_avg);
+
+    return;
+
+}

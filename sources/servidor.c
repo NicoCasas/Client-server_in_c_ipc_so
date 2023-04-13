@@ -675,8 +675,7 @@ int crear_y_bindear_inet6_socket(const char* ip, uint16_t port){
 }
 
 void procesar_mensajes_tipo_C(char* mensaje, int sfd){
-    printf("%s\n",mensaje);
-
+    
     loguear_cliente_tipo_C(mensaje);
     imprimir_cantidad_de_mensajes_recibidos();
     
@@ -798,19 +797,12 @@ char* armar_respuesta_tipo_C(float carga_normalizada, int memoria_libre){
 }
 
 void enviar_respuesta_tipo_C(char* mensaje, int sfd){
-
+    ssize_t bytes_sended;
 
     send_data_msg(sfd,mensaje,strlen(mensaje));
-
-    /* char* a_enviar = get_msg_to_transmit(0,0,(unsigned int)strlen(mensaje),mensaje,&len_a_enviar);
-
-    bytes_sended = send(sfd,a_enviar,len_a_enviar,0);
-    if(bytes_sended==-1){
-        perror("Error enviando respuesta tipo C");
-        exit(1);//TODO ver si comentar esto
+    if(bytes_sended == 0){
+        printf("El cliente se desconecto\n");
     }
-
-    free(a_enviar); */
 }
 
 void loguear_cliente_tipo_C(char* cadena){
