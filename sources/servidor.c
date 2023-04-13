@@ -146,7 +146,8 @@ void    free_matrix                         (char** matrix);
  * At exit
 */
 void limpiar_comunicaciones(void){
-    //unlink(socket_path) -> Hacer con variable de entorno
+    unlink(getenv(UNIX_PATH_ENV_NAME)); 
+    
     eliminar_lista_clientes(&clientes_A_head);
     eliminar_lista_clientes(&clientes_B_head);
     eliminar_lista_clientes(&clientes_C_head);
