@@ -86,6 +86,8 @@ char*       recibir_mensaje                         (int sfd, int efd);
 #define UNIX_SOCKET_PATH                          "/tmp/ffalkjdflkjasdnflkjasndflas"
 //#define SOCKET_PATH_A_ENV_NAME
 
+#define MAX_SIZE_CL_A 1048576  // 1GB
+
 int                 establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
 void                procesar_mensajes_tipo_A                    (char* mensaje, int fd);
 void                responder_mensaje_tipo_A                    (char* response, int sfd);
@@ -99,11 +101,13 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 #define IPV4_IP                        "127.0.0.1"
 #define IPV4_PORT                            5050
 
+#define MAX_SIZE_CL_B 2097152  // 2GB
+
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
 void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
-void comprimir_resultado(char* a_comprimir);
-void responder_mensaje_tipo_B(int sfd, char* resultado);
-void enviar_comprimido(int sfd);
+void    comprimir_resultado(char* a_comprimir);
+void    responder_mensaje_tipo_B(int sfd, char* resultado);
+void    enviar_comprimido(int sfd);
 void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -133,7 +137,7 @@ char*   obtener_fecha                               ();
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a obtener la salida de journalctl
 
-char*   get_output_journalctl_command       (char* journalctl_command);
+char*   get_output_journalctl_command       (char* journalctl_command,size_t max_size);
 void    esperar_hijo                        (pid_t pid);
 void    set_pipe_as_stdout                  (int pipe_fds[2]);
 char**  split_words_safely                  (char* buffer, unsigned int* n_items_p, char* pattern);
@@ -503,7 +507,7 @@ void procesar_mensajes_tipo_A(char* mensaje, int sfd){
 
     //TODO armar mensaje error y enviarlo en caso de ser comando invalido
     requests = cJSON_get_requests(mensaje,NULL);
-    resultado = get_output_journalctl_command(requests[0]);
+    resultado = get_output_journalctl_command(requests[0],MAX_SIZE_CL_A);
     if(resultado == NULL){
         resultado = calloc_safe(sizeof(char),CADENA_SIZE);
         strcpy(resultado,"Error: Comando inválido");
@@ -616,7 +620,7 @@ void procesar_mensajes_tipo_B(char* mensaje, int sfd){
 
     //TODO armar mensaje error y enviarlo en caso de ser comando invalido
     requests = cJSON_get_requests(mensaje,NULL);
-    resultado = get_output_journalctl_command(requests[0]);
+    resultado = get_output_journalctl_command(requests[0],MAX_SIZE_CL_B);
     if(resultado == NULL){
         send_data_msg(sfd,"Error: Comando invalido",strlen("Error: Comando invalido"));
         free_matrix(requests);
@@ -941,8 +945,9 @@ void crear_archivo_si_no_existe(const char* path){
 /**
  * Executes a journalctl command and returns a string with the output. 
  * The output is dinamically alocated, so it must be freed
+ * Return 'max size' bytes as maximum
 */
-char* get_output_journalctl_command(char* journalctl_command){
+char* get_output_journalctl_command(char* journalctl_command,size_t max_size){
 //    char* comm_arg[64] = {"journalctl", "-u", "ondemand.service",NULL};
     char** comm_arg = NULL;
     int pipe_fds [2];   //pipe_fds[0] -> read-end ; [1] -> write end
@@ -993,6 +998,12 @@ char* get_output_journalctl_command(char* journalctl_command){
                 len_cadena_completa += (size_t) bytes_read;
                 cadena_completa[len_cadena_completa] = '\0';
                 
+                if(len_cadena_completa>max_size){
+                    free_matrix(comm_arg);
+                    free(cadena_completa);
+                    return NULL;
+                }
+
                 memset(buff,0,4096);
 
             }
