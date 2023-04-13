@@ -70,8 +70,6 @@ void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 #define S_LIMIT_FOPEN                   5050
 #define H_LIMIT_FOPEN                   8000
 
-#define N_BYTES_TO_RECEIVE               256
-
 int         crear_y_bindear_unix_socket             (const char* socket_path);
 int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
 int         crear_y_bindear_inet6_socket            (const char* ip, uint16_t port);
@@ -88,9 +86,10 @@ char*       recibir_mensaje                         (int sfd, int efd);
 //#define SOCKET_PATH_A_ENV_NAME
 
 int                 establecer_comunicacion_clientes_tipo_A     (const char* path_fifo);
-void                process_msg_A                               (char* msg, size_t len, int sfd);
 void                procesar_mensajes_tipo_A                    (char* mensaje, int fd);
-ssize_t             leer_clientes_tipo_A                        (char* cadena, int fd);
+void                responder_mensaje_tipo_A                    (char* response, int sfd);
+char*               armar_respuesta_tipo_A                      (char* response);
+void                enviar_respuesta_tipo_A                     (char* respuesta, int sfd);
 void                loguear_cliente_tipo_A                      (char* cadena);
 void                imprimir_cantidad_de_mensajes_recibidos     ();
 
@@ -100,7 +99,6 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 #define IPV4_PORT                            5050
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
-void    process_msg_B                               (char* msg, size_t len, int sfd);
 void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
 ssize_t leer_clientes_tipo_B                        ();
 void    loguear_cliente_tipo_B                      (char* cadena);
@@ -111,7 +109,6 @@ void    loguear_cliente_tipo_B                      (char* cadena);
 #define IPV6_PORT                            5060
 
 int     establecer_comunicacion_clientes_tipo_C     (const char* ip, uint16_t port);
-void    process_msg_C                               (char* msg, size_t len, int sfd);
 void    procesar_mensajes_tipo_C                    (char* mensaje, int sfd);
 void    loguear_cliente_tipo_C                      (char* cadena);
 void    responder_mensajes_tipo_C                   (int sfd);
@@ -450,7 +447,7 @@ char* recibir_mensaje(int sfd, int efd){
     return recibido;
 }
 
-//////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
 ///CLIENTE A
 
 int establecer_comunicacion_clientes_tipo_A(const char* socket_path){
@@ -505,15 +502,55 @@ void procesar_mensajes_tipo_A(char* mensaje, int sfd){
     requests = cJSON_get_requests(mensaje,NULL);
     resultado = get_output_journalctl_command(requests[0]);
     if(resultado == NULL){
-        free(resultado);
-        free_matrix(requests);
-        return;
+        resultado = calloc_safe(sizeof(char),CADENA_SIZE);
+        strcpy(resultado,"Error: Comando inválido");
     }
-    printf("%s\n",resultado);
-    sfd++;
+    
+    responder_mensaje_tipo_A(resultado, sfd);
+
     free(resultado);
     free_matrix(requests);
     return;
+}
+
+void responder_mensaje_tipo_A(char* response, int sfd){
+    char* respuesta = armar_respuesta_tipo_A(response);
+    enviar_respuesta_tipo_A(respuesta,sfd);
+    
+    free(respuesta);
+}
+
+char* armar_respuesta_tipo_A(char* response){
+    char* mensaje = NULL;
+    cJSON* responses = NULL;
+    int n_responses = 0;
+
+    cJSON* monitor = cJSON_get_header_response_by_server(&responses);
+
+    // Responses
+    cJSON_add_string_to_array(responses,"response_1",response);
+
+    n_responses = cJSON_GetArraySize(responses);
+    cJSON_replace_number_value(monitor,"n_responses",n_responses);
+
+    mensaje = cJSON_Print(monitor);
+    if(mensaje==NULL){
+        perror("Error imprimiendo json");
+        exit(1);
+    }
+
+    cJSON_Delete(monitor);
+
+    return mensaje;
+}
+
+void enviar_respuesta_tipo_A(char* respuesta, int sfd){
+    ssize_t bytes_sended;
+    bytes_sended = send_data_msg(sfd,respuesta,strlen(respuesta));
+    if(bytes_sended==-1){
+        perror("Error enviando mensaje tipo A");
+        exit(1);
+    }
 }
 
 void loguear_cliente_tipo_A(char* cadena){

@@ -23,10 +23,11 @@
 
 #define CADENA_SIZE 64
 
-void enviar_mensaje(char* cadena, int sfd);
-char* obtener_mensaje(void);
-void configurar_sigint();
-size_t leer_meminfo(char* mensaje);
+void    enviar_mensaje          (char* cadena, int sfd);
+char*   obtener_mensaje         (void);
+void    configurar_sigint       ();
+size_t  leer_meminfo            (char* mensaje);
+void    free_matrix             (char** matrix);
 
 #define CLIENTE_A_PROMPT "Cliente_A: "
 void leer_cadena_de_command_line(char *cadena);
@@ -51,6 +52,9 @@ int main(int argc, char* argv[]){
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
     int sfd;
     char* a_enviar;
+    char* respuesta = NULL;
+    size_t len_respuesta=0;
+    char** responses = NULL;
 
     configurar_sigint();
     if(argc>1){
@@ -67,7 +71,24 @@ int main(int argc, char* argv[]){
         a_enviar = obtener_mensaje();
         enviar_mensaje(a_enviar,sfd);
 
+        respuesta = receive_data_msg(sfd,&len_respuesta);
+        if(respuesta == NULL){
+            switch(len_respuesta){
+                case 0: printf("El sv se desconectó\n");break;
+                case 1: printf("Checksum invalido");break;
+                default: break;
+            }
+            free(a_enviar);
+            continue;
+        }
+
+        responses = cJSON_get_responses(respuesta,NULL);
+
+        printf("%s\n",responses[0]);
+
+        free(respuesta);
         free(a_enviar);
+        free_matrix(responses);
     }
     
     return 0;
@@ -165,8 +186,20 @@ void enviar_mensaje(char* a_enviar, int sfd){
         perror("Error enviando mensaje");
         exit(1);
     }
-    printf("Mando: %s\n",a_enviar);
+    //printf("Mando: %s\n",a_enviar);
     
     return;
 }
 
+
+/**
+ * Frees a two dimensional array
+*/
+void free_matrix(char** matrix){
+    int i = 0;
+    while(matrix[i]!=NULL){
+        free (matrix[i]);
+        i++;
+    }
+    free(matrix);
+}
