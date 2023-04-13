@@ -12,8 +12,10 @@
 #include <string.h>
 #include <signal.h>
 #include <checksum.h>
+#include <time.h>
 #include "variables_entorno.h"
-
+#include "cJSON.h"
+#include "cJSON_custom.h"
 
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
@@ -21,11 +23,16 @@
 #include <arpa/inet.h>
 
 
+#define FECHA_SIZE 20
 #define CADENA_SIZE 64
+#define COMPRESSED_FILE_EXTENSION    ".gz"
+#define LEN_COMPRESSED_FILE_EXTENSION   3
 
 void enviar_mensaje(char* cadena, int sfd);
-void obtener_mensaje(char* cadena);
+char* obtener_mensaje(void);
 void configurar_sigint();
+void procesar_respuesta(char* respuesta, size_t len_respuesta);
+char* obtener_fecha();
 
 #define CLIENTE_A_PROMPT "Cliente_B: "
 void leer_cadena_de_command_line(char *cadena);
@@ -49,9 +56,11 @@ void sigint_handler(int num){
 /////////////////////////////////////MAIN//////////////////////////////////////////
 
 int main(int argc, char* argv[]){
-    char cadena[CADENA_SIZE];
     char config_path[CADENA_SIZE] = CONFIG_FILE_PATH_DEFAULT;
     int sfd;
+    char* a_enviar = NULL;
+    char* respuesta= NULL;
+    size_t len_respuesta;
 
     configurar_sigint();
     if(argc>1){
@@ -64,12 +73,75 @@ int main(int argc, char* argv[]){
 
     //while(1){
     for(int i=0; i<2; i++){
-        memset(cadena,0,CADENA_SIZE);    
-        obtener_mensaje(cadena);
-        enviar_mensaje(cadena,sfd);
+        a_enviar = obtener_mensaje();
+        enviar_mensaje(a_enviar,sfd);
+
+        respuesta = receive_data_msg(sfd,&len_respuesta);
+        if(respuesta == NULL){
+            switch(len_respuesta){
+                case 0: printf("El sv se desconectó\n");break;
+                case 1: printf("Checksum invalido");break;
+                default: break;
+            }
+            free(a_enviar);
+            continue;
+        }
+
+        if(strncmp(respuesta,"Error: Comando invalido",strlen(respuesta))){ //Entra si no es error
+            procesar_respuesta(respuesta,len_respuesta);    
+        }
+        free(respuesta);
+        free(a_enviar);
     }
     
     return 0;
+}
+
+void procesar_respuesta(char* respuesta, size_t len_respuesta){
+    char path[CADENA_SIZE];
+    //FILE* fp;
+    ssize_t bytes_write=0;
+    int fd;
+
+    memset(path,0,CADENA_SIZE);
+    char* fecha = obtener_fecha();
+    sprintf(path,"../compressed_files/%s_XXXXXX%s",fecha,COMPRESSED_FILE_EXTENSION);
+    
+    fd=mkstemps(path,LEN_COMPRESSED_FILE_EXTENSION);
+    if(fd==-1){
+        perror("Error creando path");
+        exit(1);
+    }
+
+    bytes_write = write(fd,respuesta,len_respuesta);
+    if(bytes_write==0){
+        perror("Error escribiendo archivo comprimido");
+        exit(1);
+    }
+    
+    if(close(fd)!=0){
+        perror("Error cerrando archivo");
+        exit(1);
+    }
+
+    free(fecha);
+    return;
+    
+}
+
+/**
+ * Retorna un puntero dinámicamente alocado con la fecha en formato año-mes-dia hora:min:seg
+ * Extraido y ligeramente modificado de 
+ * https://stackoverflow.com/questions/1442116/how-to-get-the-date-and-time-values-in-a-c-program
+ * 
+*/
+char* obtener_fecha(){
+    char* fecha = calloc(sizeof(char),FECHA_SIZE);
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    sprintf(fecha,"%d-%02d-%02d_%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    
+    return fecha;
 }
 
 void configurar_sigint(){
@@ -104,9 +176,34 @@ int establecer_comunicacion_con_servidor(void){
 }
 
 
-void obtener_mensaje(char* cadena){
+char* obtener_mensaje(void){
+    char* mensaje = NULL;
+    char cadena[CADENA_SIZE];
+    
+    cJSON* requests = NULL;
+    cJSON* monitor = cJSON_get_header_request_by_client(&requests,"Cliente B");
+
+    // For testing
+    cJSON_add_pid(monitor);
+
+    // Requests
+    memset(cadena,0,CADENA_SIZE);
     leer_cadena_de_command_line(cadena);
-    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+    cJSON_add_string_to_array(requests,"request_1",cadena);
+
+    // n_request
+    cJSON_replace_number_value(monitor,"n_requests",cJSON_GetArraySize(requests));
+
+    // Impresion
+    mensaje = cJSON_Print(monitor);
+    if(mensaje==NULL){
+        perror("Error imprimiendo json");
+        exit(1);
+    }
+
+    cJSON_Delete(monitor);
+
+    return mensaje;
 }
 
 void leer_cadena_de_command_line(char *cadena){
@@ -115,6 +212,8 @@ void leer_cadena_de_command_line(char *cadena){
         perror("Error leyendo cadena de command line");
         exit(1);
     }
+    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+
 }
 
 void enviar_mensaje(char* cadena, int sfd){

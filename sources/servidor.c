@@ -26,6 +26,7 @@
 #include "checksum.h"
 #include "cJSON.h"
 #include "cJSON_custom.h"
+#include "compress_and_decompress_file.h"
 
 #define CADENA_SIZE                                 N_BYTES_TO_RECEIVE
 #define FECHA_SIZE                                  20
@@ -100,7 +101,9 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
 void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
-ssize_t leer_clientes_tipo_B                        ();
+void comprimir_resultado(char* a_comprimir);
+void responder_mensaje_tipo_B(int sfd, char* resultado);
+void enviar_comprimido(int sfd);
 void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -606,18 +609,60 @@ int crear_y_bindear_inet_socket(const char* ip, uint16_t port){
 }
 
 void procesar_mensajes_tipo_B(char* mensaje, int sfd){
-    printf("%s\n",mensaje);
+    char* resultado = NULL;
+    char** requests = NULL;
+
     loguear_cliente_tipo_B(mensaje);
-    sfd++;
-    imprimir_cantidad_de_mensajes_recibidos();
+
+    //TODO armar mensaje error y enviarlo en caso de ser comando invalido
+    requests = cJSON_get_requests(mensaje,NULL);
+    resultado = get_output_journalctl_command(requests[0]);
+    if(resultado == NULL){
+        send_data_msg(sfd,"Error: Comando invalido",strlen("Error: Comando invalido"));
+        free_matrix(requests);
+        return;    
+    }
+    
+    responder_mensaje_tipo_B(sfd,resultado);
+
+    free(resultado);
+    free_matrix(requests);
 
     return;
 }
 
-ssize_t leer_clientes_tipo_B(){
-    ssize_t bytes_read=0;
+#define COMPRESS_PATH   "compress.z"
+void comprimir_resultado(char* a_comprimir){
+    compress_one_file_from_var(a_comprimir, (unsigned int) strlen(a_comprimir), COMPRESS_PATH);
+}
 
-    return bytes_read;
+void responder_mensaje_tipo_B(int sfd, char* resultado){
+    comprimir_resultado(resultado);
+    enviar_comprimido(sfd);
+    if(remove(COMPRESS_PATH)==-1){
+        perror("Error while removing compressed log: ");
+        exit(1);
+    }
+}
+
+void enviar_comprimido(int sfd){
+    FILE* fp = fopen(COMPRESS_PATH,"rb");
+    size_t num_read = 0;
+    char buffer[MSG_DATA_SIZE];
+    unsigned int count = 0;
+    size_t len;
+
+    while((num_read = fread(buffer,1,sizeof(buffer),fp))>0){
+        char* to_send = get_msg_to_transmit(0,count++, num_read & 0x7fffffff,buffer,&len);
+        if(send(sfd,to_send,len,0) == -1){
+            perror("Error while sending log");
+            exit(1);
+        }
+        free(to_send);
+    }
+
+    fclose(fp);
+    return;
 }
 
 void loguear_cliente_tipo_B(char* cadena){
@@ -799,7 +844,7 @@ char* armar_respuesta_tipo_C(float carga_normalizada, int memoria_libre){
 void enviar_respuesta_tipo_C(char* mensaje, int sfd){
     ssize_t bytes_sended;
 
-    send_data_msg(sfd,mensaje,strlen(mensaje));
+    bytes_sended = send_data_msg(sfd,mensaje,strlen(mensaje));
     if(bytes_sended == 0){
         printf("El cliente se desconecto\n");
     }
@@ -909,7 +954,7 @@ char* get_output_journalctl_command(char* journalctl_command){
 
     comm_arg = split_args(journalctl_command,NULL);
     if(strncmp(comm_arg[0],"journalctl",strlen("journalctl"))){
-        perror("Error, comando invalido");
+        printf("Error, comando invalido\n");
         free_matrix(comm_arg);
         return NULL;
     }
