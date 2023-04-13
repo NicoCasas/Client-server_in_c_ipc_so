@@ -26,8 +26,8 @@
 
 #define FECHA_SIZE 20
 #define CADENA_SIZE 64
-#define COMPRESSED_FILE_EXTENSION    ".gz"
-#define LEN_COMPRESSED_FILE_EXTENSION   3
+#define COMPRESSED_FILE_EXTENSION    ".txt.gz"
+#define LEN_COMPRESSED_FILE_EXTENSION       7
 
 void crear_path_archivos_comprimidos(void);
 void enviar_mensaje(char* cadena, int sfd);

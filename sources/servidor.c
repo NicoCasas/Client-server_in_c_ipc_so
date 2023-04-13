@@ -657,7 +657,7 @@ void enviar_comprimido(int sfd){
     size_t len;
 
     while((num_read = fread(buffer,1,sizeof(buffer),fp))>0){
-        char* to_send = get_msg_to_transmit(0,count++, num_read & 0x7fffffff,buffer,&len);
+        char* to_send = get_msg_to_transmit(1,count++, num_read & 0x7fffffff,buffer,&len);
         if(send(sfd,to_send,len,0) == -1){
             perror("Error while sending log");
             exit(1);
