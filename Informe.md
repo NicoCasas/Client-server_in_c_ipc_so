@@ -1,8 +1,7 @@
-# Informe Lab 2: IPC Advanced
+# Informe Lab 2: IPC Advanced - Desarrollo
 
-## Desarrollo
 
-### Tipos de sockets utilizados
+## Tipos de sockets utilizados
 
 En este laboratorio, los sockets empleados fueros los siguientes:
 - Para la comunicación entre sv - cliente_A se utilizó AF_UNIX
@@ -25,7 +24,7 @@ El cliente:
 
 Una vez aceptado el cliente por el servidor, la comunicación es full duplex.
 
-### Gestión de conexiones por parte del servidor
+## Gestión de conexiones por parte del servidor
 
 Para la gestión de las conexiones el servidor implementa 3 listas, una para cada tipo de cliente donde se almacena los file descriptors obtenidos al momento de aceptar la conexion.
 
@@ -36,7 +35,7 @@ Luego, hay dos escenarios posibles:
   - El sfd que retorna epoll es un listener -> Se acepta la conexion y se agrega el nuevo sfd obtenido a epoll y a la lista de clientes correspondiente.
   - El sfd que retorna epoll no es un listener -> Se busca en las listas a qué tipo de cliente corresponde, y se actúa en consecuencia. 
 
-### Comunicaciones
+## Comunicaciones
 
 Para mantener homogeneidad en cuanto al paso de mensajes entre los mensajes en formato string y en formato binario, se emplea una interfaz que encapsula a los datos.
 
@@ -51,7 +50,7 @@ Dicha interfaz fue escrita por mí para otro trabajo práctico. Por eso es que e
 Hay métodos nuevos creados para hacer lo posible de pensarlo como una capa de abstracción. Por ejemplo los métodos send_data_msg y receive_data_msg permiten enviar y recibir información independientemente de su tamaño, ya que lo
 parten y reconstruyen en origen y destino. Con el uso de esas dos funciones, se puede abstraer de esta capa. Es la que implementa la validación de checksum. Trabaja todo como datos en binario.
 
-### JSON
+## JSON
 
 Para los mensajes, ya información que va a usar el programa, se emplea el formato json como indica la consigna.
 Para los clientes, los mensajes se ordenan, a priori, con el siguiente formato:
@@ -82,18 +81,18 @@ La idea de implementarlo así, es que siento que así sería más cómodo escala
 
 En cJSON_custom, hay métodos que creé para facilitar el manejo de json, algunos más generales y otros más específicos del tp. Esto a su vez, es factible debido a la homogeneidad entre los formatos de los mensajes.
 
-### Compresion
+## Compresion
 
 Para la compresión se usa la librería zlib.h. Los códigos principales referidos a este tema se incluyen en compress_and_decompress_file.c. Funciona como una interfaz. Está extraído y modificado de internet (se aclara la página como comentario en el código).
 Tuve que hacer un método extra para comprimir no de un archivo, si no de una variable. Más que hacer una función extra, en realidad es un wrapper de una función de la librería.
 Los clientes_B guardan el comprimido en la carpeta compress_files usando un nombre al azar que utiliza la función mkstemps.
 
-### Journalctl
+## Journalctl
 
 Aprovechando que xubuntu (la distribución que uso) tiene esta funcionalidad, lo que hago en el sv es hacer fork-exec redireccionando el std a un pipe que voy a leer desde proceso padre en paralelo, guardando el contenido en una variable alocada dinámicamente.
 Podría haber redirigido todo a un archivo y leerlo de ahí, pero me pareció más eficiente tener todo en una variable, usarla y liberarla, que escribir un archivo, leerlo y borrarlo.
 El tamaño máximo que se optó por ponerle a un retorno de esta función es de 256 MB para el caso de pasar el contenido tal cual (cliente A) y de 1 GB en caso de que vaya a ser comprimido (cliente_B). 
 
-### Cppcheck y Valgrind
+## Cppcheck y Valgrind
 
 Los códigos no tienen errores de cppcheck ni valgrind. No está probado valgrind para contenidos de journalctl mayores a 2 MB.
