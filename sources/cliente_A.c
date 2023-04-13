@@ -65,8 +65,8 @@ int main(int argc, char* argv[]){
     //Falta comprobar y cargar las que correspondan
     sfd = establecer_comunicacion_con_servidor();
 
-    //while(1){
-    for(int i=0; i<2; i++){
+    while(1){
+    //for(int i=0; i<2; i++){
         a_enviar = obtener_mensaje();
         enviar_mensaje(a_enviar,sfd);
 
