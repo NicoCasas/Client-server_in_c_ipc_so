@@ -673,6 +673,8 @@ void loguear_cliente_tipo_B(char* cadena){
     printf("Recibo: %s\n",cadena);
     loguear_mensaje_cliente('B',cadena);
     n_mensajes_tipo_B++;
+    imprimir_cantidad_de_mensajes_recibidos();
+
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -725,9 +727,7 @@ int crear_y_bindear_inet6_socket(const char* ip, uint16_t port){
 
 void procesar_mensajes_tipo_C(char* mensaje, int sfd){
     
-    loguear_cliente_tipo_C(mensaje);
-    imprimir_cantidad_de_mensajes_recibidos();
-    
+    loguear_cliente_tipo_C(mensaje);  
     responder_mensajes_tipo_C(sfd);
     
     return;
@@ -858,6 +858,8 @@ void loguear_cliente_tipo_C(char* cadena){
     printf("Recibo: %s\n",cadena);
     loguear_mensaje_cliente('C',cadena);
     n_mensajes_tipo_C++;
+    imprimir_cantidad_de_mensajes_recibidos();
+
 }
 
 
