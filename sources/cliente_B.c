@@ -105,7 +105,7 @@ int main(int argc, char* argv[]){
 }
 
 void crear_path_archivos_comprimidos(void){
-    int flag = mkdir(getenv(COMPRESS_PATH_ENV_NAME),0644);
+    int flag = mkdir(getenv(COMPRESS_PATH_ENV_NAME),0775);
     if(flag==-1 && errno!=EEXIST){
         perror("Error creando archivo");
         exit(1);
