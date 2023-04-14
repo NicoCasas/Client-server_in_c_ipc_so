@@ -768,10 +768,10 @@ int obtener_cpu_cores(){
 
 float obtener_carga(){
     char buffer[BUFFER_PROC_SIZE];
-    float carga;
+    float carga, aux1, aux2;
     
     leer_archivo("/proc/loadavg",buffer);
-    sscanf(buffer,"%f",&carga);
+    sscanf(buffer,"%f %f %f",&aux1,&aux2,&carga);
     
     return carga;
 }
