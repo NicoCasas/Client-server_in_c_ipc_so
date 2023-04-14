@@ -42,6 +42,10 @@ void comprobar_variables_entorno_B(){
         setenv(IPV4_PORT_ENV_NAME,IPV4_PORT_DEFAULT,0);
         printf("%s=%s\n",IPV4_PORT_ENV_NAME,IPV4_PORT_DEFAULT);
     }
+    if(getenv(COMPRESS_PATH_ENV_NAME)==NULL){
+        setenv(COMPRESS_PATH_ENV_NAME,COMPRESS_PATH_DEFAULT,0);
+        printf("%s=%s\n",COMPRESS_PATH_ENV_NAME,COMPRESS_PATH_DEFAULT);
+    }
     return;
 }
 

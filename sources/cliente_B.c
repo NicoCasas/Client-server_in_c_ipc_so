@@ -69,6 +69,7 @@ int main(int argc, char* argv[]){
     }
 
     cargar_variables_de_entorno_de_archivo(config_path);
+    comprobar_variables_entorno_B();
     crear_path_archivos_comprimidos();
     //Falta comprobar y cargar las que correspondan
     sfd = establecer_comunicacion_con_servidor();
@@ -90,7 +91,11 @@ int main(int argc, char* argv[]){
         }
 
         if(strncmp(respuesta,"Error: Comando invalido",strlen(respuesta))){ //Entra si no es error
-            procesar_respuesta(respuesta,len_respuesta);    
+            procesar_respuesta(respuesta,len_respuesta);
+            printf("Archivo comprimido correctamente descargado\n");    
+        }
+        else{
+            printf("Error: Comando invalido\n");
         }
         free(respuesta);
         free(a_enviar);
@@ -100,7 +105,7 @@ int main(int argc, char* argv[]){
 }
 
 void crear_path_archivos_comprimidos(void){
-    int flag = mkdir("../compressed_files/",0644);
+    int flag = mkdir(getenv(COMPRESS_PATH_ENV_NAME),0644);
     if(flag==-1 && errno!=EEXIST){
         perror("Error creando archivo");
         exit(1);
@@ -115,7 +120,7 @@ void procesar_respuesta(char* respuesta, size_t len_respuesta){
 
     memset(path,0,CADENA_SIZE);
     char* fecha = obtener_fecha();
-    sprintf(path,"../compressed_files/%s_XXXXXX%s",fecha,COMPRESSED_FILE_EXTENSION);
+    sprintf(path,"%s%s_XXXXXX%s",getenv(COMPRESS_PATH_ENV_NAME),fecha,COMPRESSED_FILE_EXTENSION);
     
     fd=mkstemps(path,LEN_COMPRESSED_FILE_EXTENSION);
     if(fd==-1){

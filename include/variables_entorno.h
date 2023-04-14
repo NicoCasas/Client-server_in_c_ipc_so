@@ -2,9 +2,11 @@
 
 /*ENV NAMES PATHS*/
 #define LOG_PATH_ENV_NAME                                 "LOG_PATH"
+#define COMPRESS_PATH_ENV_NAME                       "COMPRESS_PATH"
 
 /*ENV NAMES UNIX*/
 #define UNIX_PATH_ENV_NAME                               "UNIX_PATH"
+
 
 /*ENV NAMES IPv4*/
 #define IPV4_IP_ENV_NAME                                   "IPV4_IP"
@@ -16,6 +18,7 @@
 
 /*DEFAULT PATHS*/
 #define LOG_PATH_DEFAULT                       "../log/mensajes.log"
+#define COMPRESS_PATH_DEFAULT                 "../compressed_files/"
 
 /*DEFAULT UNIX*/
 #define UNIX_PATH_DEFAULT         "/tmp/ffalkjdflkjasdnflkjasndflas"
