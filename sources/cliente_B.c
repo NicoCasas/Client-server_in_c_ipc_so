@@ -219,13 +219,14 @@ char* obtener_mensaje(void){
 }
 
 void leer_cadena_de_command_line(char *cadena){
-    printf(CLIENTE_A_PROMPT);
-    if(fgets(cadena,CADENA_SIZE,stdin)==NULL){
-        perror("Error leyendo cadena de command line");
-        exit(1);
-    }
-    cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
-
+    while(cadena[0]=='\0'){
+        printf(CLIENTE_A_PROMPT);
+        if(fgets(cadena,CADENA_SIZE,stdin)==NULL){
+            perror("Error leyendo cadena de command line");
+            exit(1);
+        }
+        cadena[strlen(cadena)-1]='\0'; //Removemos el salto de linea
+    }   
 }
 
 void enviar_mensaje(char* cadena, int sfd){
