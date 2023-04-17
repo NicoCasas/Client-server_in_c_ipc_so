@@ -66,10 +66,10 @@ SLIST_HEAD(clientes_C_head,cliente); */
 void agregar_cliente_a_lista    (struct clientes_head* clientes_head_p, int sfd);
 void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 
-
-#define MAX_EV                          5000
-#define S_LIMIT_FOPEN                   5050
-#define H_LIMIT_FOPEN                   8000
+#define VALGRIND_ENV_NAME          "VALGRIND"
+#define MAX_EV                         65536
+#define S_LIMIT_FOPEN                1048576
+#define H_LIMIT_FOPEN                1048576
 
 int         crear_y_bindear_unix_socket             (const char* socket_path);
 int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
@@ -79,7 +79,7 @@ void        aumentar_limite_de_archivos_abiertos    ();
 void        aceptar_cliente_y_agregar_a_estructuras (int list_sfd, struct sockaddr* addr_p, unsigned int* addr_len_p, 
                                                      int efd, struct clientes_head* ch_p);
 char*       recibir_mensaje                         (int sfd, int efd);
-
+void        enviar_mensaje_a_lista_clientes         (struct clientes_head* ch_p);
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
 //TODO Definir variables de entorno y poner un path como la gente. Se puede usar mktemp
@@ -142,15 +142,33 @@ void    free_matrix                         (char** matrix);
 
 
 
+
+/**
+ * VARIABLES GLOBALES
+*/
+
+unsigned int n_mensajes_tipo_A;
+unsigned int n_mensajes_tipo_B;
+unsigned int n_mensajes_tipo_C;
+
+char* g_err_msg;
+size_t g_len_err_msg;
+
 /**
  * At exit
 */
 void limpiar_comunicaciones(void){
-    unlink(getenv(UNIX_PATH_ENV_NAME)); 
+
+    enviar_mensaje_a_lista_clientes(&clientes_A_head);
+    enviar_mensaje_a_lista_clientes(&clientes_B_head);
+    enviar_mensaje_a_lista_clientes(&clientes_C_head);
     
     eliminar_lista_clientes(&clientes_A_head);
     eliminar_lista_clientes(&clientes_B_head);
     eliminar_lista_clientes(&clientes_C_head);
+
+    free(g_err_msg);
+    unlink(getenv(UNIX_PATH_ENV_NAME)); 
 }
 
 /**
@@ -161,13 +179,7 @@ void sigint_handler(int num){
     exit(1);
 }
 
-/**
- * VARIABLES GLOBALES
-*/
 
-unsigned int n_mensajes_tipo_A;
-unsigned int n_mensajes_tipo_B;
-unsigned int n_mensajes_tipo_C;
 
 //////////////////////////////////////MAIN///////////////////////////////////////
 
@@ -194,13 +206,12 @@ int main(int argc, char* argv[]){
 
     //Referido a limpieza al terminar
     configurar_at_exit_y_sigint();   
+    g_err_msg = get_msg_to_transmit(TYPE_ERROR_FROM_SV,0, 0,NULL,&g_len_err_msg);
 
+    //Aumentamos el numero de fd
+    aumentar_limite_de_archivos_abiertos();
 
     //Referido a listas de clientes
-    //struct clientes_head clientes_A_head;
-    //struct clientes_head clientes_B_head;
-    //struct clientes_head clientes_C_head;
-
     SLIST_INIT(&clientes_A_head);
     SLIST_INIT(&clientes_B_head);
     SLIST_INIT(&clientes_C_head);
@@ -406,11 +417,24 @@ void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
 }
  */
 
+void enviar_mensaje_a_lista_clientes(struct clientes_head* ch_p){
+    struct cliente* cp  = NULL;
+    
+    cp = SLIST_FIRST(ch_p);
+    while(cp!=NULL){
+        send(cp->sfd,g_err_msg,g_len_err_msg,MSG_DONTWAIT);
+        cp = SLIST_NEXT(cp,clientes);
+    }
+
+    return;
+}
+
 //Esto es más óptimo según el man
 void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
     struct cliente* cp;
     while (!SLIST_EMPTY(clientes_head_p)) {           /* List Deletion. */
                 cp = SLIST_FIRST(clientes_head_p);
+                close(cp->sfd);
                 SLIST_REMOVE_HEAD(clientes_head_p, clientes);
                 free(cp);
     }
@@ -423,6 +447,15 @@ void aumentar_limite_de_archivos_abiertos(){
     struct rlimit new_limits;
     new_limits.rlim_cur = S_LIMIT_FOPEN;
     new_limits.rlim_max = H_LIMIT_FOPEN;
+
+    const char* valgrind_value = getenv(VALGRIND_ENV_NAME);
+
+    if(valgrind_value!=NULL){
+        if(!strncmp(valgrind_value,"YES",strlen("YES"))){
+            return;
+        }
+    }
+    
     if(setrlimit(RLIMIT_NOFILE,&new_limits)==-1){
         perror("Error seteando limites de numeros de files abiertos");
         exit(1);
@@ -960,7 +993,7 @@ char* get_output_journalctl_command(char* journalctl_command,size_t max_size){
     pid_t pid;
 
     comm_arg = split_args(journalctl_command,NULL);
-    if(strncmp(comm_arg[0],"journalctl",strlen("journalctl"))){
+    if(strncmp(comm_arg[0],"journalctl",strlen("journalctl"))|| strlen(comm_arg[0])>strlen("journalctl")){
         printf("Error, comando invalido\n");
         free_matrix(comm_arg);
         return NULL;
