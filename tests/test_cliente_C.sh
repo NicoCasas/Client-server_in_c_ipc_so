@@ -43,7 +43,7 @@ CL_CARGA_NORMALIZADA=$(cat test_C/cliente_C.log | grep Carga | tail -n 1 | awk '
 MARGEN_ERROR=1000
 ERROR=$(( ${CL_MEMORIA_LIBRE} - ${MEMORIA_LIBRE} )) 
 
-[ ${ERROR} > 0 ] || ERROR=-${ERROR}
+[ ${ERROR} -ge 0 ] || ERROR=$(( -1 * ${ERROR} ))
 
 # Imprimimos el resultado
 [ ${CARGA_NORMALIZADA} == ${CL_CARGA_NORMALIZADA} ] && [ ${ERROR} -le ${MARGEN_ERROR} ] && echo "CLIENTE_C : TEST PASSED" || echo "CLIENTE_C : TEST FAILED"
