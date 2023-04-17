@@ -15,12 +15,16 @@
 #define TYPE_PRODUCTOR_3         (unsigned int)               3
 #define TYPE_VALIDACION_1        (unsigned int)     ((1<<28)+1)
 #define TYPE_VALIDACION_2        (unsigned int)     ((1<<28)+2)
+#define TYPE_ERROR_FROM_SV       (unsigned int)     ((1<<29)+1)
 
 #define POS_TYPE                 (unsigned int)                                          0
 #define POS_N_ORDER              (unsigned int)     (POS_TYPE     +   sizeof(unsigned int))
 #define POS_LEN_DATA             (unsigned int)     (POS_N_ORDER  +   sizeof(unsigned int))
 #define POS_DATA                 (unsigned int)     (POS_LEN_DATA +   sizeof(unsigned int))
 
+#define ESVDISCONN               (unsigned int)             (0)
+#define EBADCHECKSUM             (unsigned int)             (1)
+#define ESVERROR                 (unsigned int)             (2)
 
 typedef struct{
     unsigned int            type                    ;   //     4
@@ -42,6 +46,8 @@ void            obtener_checksum                    (const void *mensaje, size_t
                                                      unsigned int* md_len_p);
 void*           receive_data_msg                    (int sfd, size_t* len_p);
 ssize_t         send_data_msg                       (int sfd, void* data, size_t data_len, int flags);
+
+int             is_error_msg                        (unsigned int type, size_t* err_code_p);
 
 /* 
 Types:

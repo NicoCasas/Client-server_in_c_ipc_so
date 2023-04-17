@@ -5,6 +5,7 @@
 #include <zip.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include "checksum.h"
 
 static ssize_t receive_offset(int sfd,char* msg, unsigned int* data_len_p);
@@ -12,6 +13,7 @@ static ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_l
 static void    bin_cpy(char* dest, char* src, size_t len);
 static void*   realloc_safe(void* ptr, size_t size);
 static ssize_t send_safe(int fd, const void* buf, size_t n, int flags);
+
 
 /* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
     size_t n;
@@ -63,6 +65,11 @@ char* get_msg_to_transmit(unsigned int type,unsigned int n_order,unsigned int le
     
     len = len_data + 3*sizeof(unsigned int) + DIGEST_SIZE;
     char* msg = calloc(len,1);
+
+    if(msg==NULL){
+        perror("Error alocando memoria");
+        return NULL;
+    }
 
     bin_cpy(msg,(char*)&type,4);
     bin_cpy(msg+4,(char*)&n_order,4);
@@ -157,7 +164,7 @@ ssize_t send_data_msg(int sfd, void* data, size_t data_len, int flags){
     if(remaining_data==0) return bytes_sended;
 
     msg_buff = get_msg_to_transmit(0,count,(unsigned int)remaining_data,send_from,&msg_len);
-    bytes_sended += send_safe(sfd,msg_buff,msg_len,0);
+    bytes_sended += send_safe(sfd,msg_buff,msg_len,flags);
     
     free(msg_buff);
     return bytes_sended;
@@ -166,6 +173,9 @@ ssize_t send_data_msg(int sfd, void* data, size_t data_len, int flags){
 ssize_t send_safe(int fd, const void* buf, size_t n, int flags){
     ssize_t bytes_send = send(fd,buf,n,flags);
     if(bytes_send<0){
+        if(errno==EPIPE){
+            return 0;
+        }
         perror("Error sending msg");
         exit(1);
     }
@@ -175,9 +185,11 @@ ssize_t send_safe(int fd, const void* buf, size_t n, int flags){
 /**
  * Returns a pointer to the complete data comming by socket regardless of the size of the message.
  * It's dynamically alocated so it must be freed
- * If sfd disconnects, NULL will be returned and *len_p will be equals to 0
- * If the message if corrupted i.e. checksum does not match, NULL be returned and *len_p 
- * will be equals to 1
+ * In case of error, NULL will be returned and *len_p value will indicate the error.
+ * If sfd disconnects, *len_p will be equals to ESVDISCONN i.e. 0
+ * If the message if corrupted i.e. checksum does not match, *len_p will be EBADCHECKSUM i.e. 1
+ * If the message received indicates an error from sv i.e. type = TYPE_SV_ERROR, *len_p will be ESVERROR i.e. 2
+ * 
 */
 void* receive_data_msg(int sfd, size_t* len_p){
     char msg_buff[N_BYTES_TO_RECEIVE];
@@ -186,22 +198,32 @@ void* receive_data_msg(int sfd, size_t* len_p){
     size_t total_size = 1;
     ssize_t bytes_received = 0;
     int last_frame=0;
+    size_t err_code;
 
     while(!last_frame){
         memset(msg_buff,0,N_BYTES_TO_RECEIVE);
         bytes_received = receive_msg(sfd,msg_buff);
     
         if(bytes_received == 0){
-            *len_p = 0;
+            *len_p = ESVDISCONN;
             return NULL;
         }
         msg_struct = get_msg_struct_from_msg_received(msg_buff);
         
         if(!is_checksum_ok(msg_buff,(size_t)bytes_received,msg_struct->md_value)){
             //Do something (or not) to take care off
-            *len_p = 1;
+            *len_p = EBADCHECKSUM;
+            free(msg_struct->data);
+            free(msg_struct);
             return NULL;
         }   
+
+        if(is_error_msg(msg_struct->type,&err_code)){
+            *len_p = err_code;
+            free(msg_struct->data);
+            free(msg_struct);
+            return NULL;
+        }
 
         complete_data = realloc_safe(complete_data,total_size+msg_struct->len_data);
         bin_cpy(complete_data+total_size-1,msg_struct->data,msg_struct->len_data);
@@ -217,6 +239,20 @@ void* receive_data_msg(int sfd, size_t* len_p){
     *len_p = total_size-1;
 
     return complete_data;
+}
+
+/**
+ * Returns 1 if type correspond to any error type, evaluating *err_code_p to the corresponding error.
+*/
+int is_error_msg(unsigned int type, size_t* err_code_p){
+    switch (type){
+    case TYPE_ERROR_FROM_SV:
+        *err_code_p = ESVERROR;
+        return 1;
+    
+    default:
+        return 0;
+    }
 }
 
 void* realloc_safe(void* ptr, size_t size){
