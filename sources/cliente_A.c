@@ -72,12 +72,22 @@ int main(int argc, char* argv[]){
 
         respuesta = receive_data_msg(sfd,&len_respuesta);
         if(respuesta == NULL){
-            switch(len_respuesta){
-                case 0: printf("El sv se desconectó\n");break;
-                case 1: printf("Checksum invalido");break;
-                default: break;
-            }
             free(a_enviar);
+            switch(len_respuesta){
+                case 0: 
+                    printf("El sv se desconectó\n");
+                    close(sfd);
+                    exit(1);
+                case 1: 
+                    printf("Checksum invalido");
+                    break;
+                case 2:
+                    printf("Ocurrio un error en el servidor\n");
+                    close(sfd);
+                    exit(1);
+                default: 
+                    break;
+            }
             continue;
         }
 
@@ -181,7 +191,7 @@ void leer_cadena_de_command_line(char *cadena){
 void enviar_mensaje(char* a_enviar, int sfd){
     ssize_t bytes_send;
 
-    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar),0);
+    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar),MSG_NOSIGNAL);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);

@@ -81,12 +81,22 @@ int main(int argc, char* argv[]){
 
         respuesta = receive_data_msg(sfd,&len_respuesta);
         if(respuesta == NULL){
-            switch(len_respuesta){
-                case 0: printf("El sv se desconectó\n");break;
-                case 1: printf("Checksum invalido");break;
-                default: break;
-            }
             free(a_enviar);
+            switch(len_respuesta){
+                case 0: 
+                    printf("El sv se desconectó\n");
+                    close(sfd);
+                    exit(1);
+                case 1: 
+                    printf("Checksum invalido");
+                    break;
+                case 2:
+                    printf("Ocurrio un error en el servidor\n");
+                    close(sfd);
+                    exit(1);
+                default: 
+                    break;
+            }
             continue;
         }
 
@@ -97,6 +107,7 @@ int main(int argc, char* argv[]){
         else{
             printf("Error: Comando invalido\n");
         }
+
         free(respuesta);
         free(a_enviar);
     }
@@ -234,19 +245,16 @@ void leer_cadena_de_command_line(char *cadena){
     }   
 }
 
-void enviar_mensaje(char* cadena, int sfd){
-    size_t len;
+void enviar_mensaje(char* a_enviar, int sfd){
     ssize_t bytes_send;
-    char* mensaje = get_msg_to_transmit(1,0,(unsigned int)strlen(cadena),cadena,&len);
 
-    bytes_send = send(sfd,mensaje,len,0);
+    bytes_send = send_data_msg(sfd,a_enviar,strlen(a_enviar),MSG_NOSIGNAL);
     if(bytes_send < 0){
         perror("Error enviando mensaje");
         exit(1);
     }
-    //printf("Mando: %s\n",cadena);
+    //printf("Mando: %s\n",a_enviar);
     
-    free(mensaje);
     return;
 }
 

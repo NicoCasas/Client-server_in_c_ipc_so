@@ -80,9 +80,19 @@ int main(int argc, char* argv[]){
         respuesta = receive_data_msg(sfd,&len_respuesta);
         if(respuesta == NULL){
             switch(len_respuesta){
-                case 0: printf("El sv se desconectó\n");break;
-                case 1: printf("Checksum invalido");break;
-                default: break;
+                case 0: 
+                    printf("El sv se desconectó\n");
+                    close(sfd);
+                    exit(1);
+                case 1: 
+                    printf("Checksum invalido");
+                    break;
+                case 2:
+                    printf("Ocurrio un error en el servidor\n");
+                    close(sfd);
+                    exit(1);
+                default: 
+                    break;
             }
             continue;
         }
