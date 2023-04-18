@@ -283,7 +283,6 @@ int main(int argc, char* argv[]){
 
                 continue;
             }        
-
             /* En caso de ser otro listener */
 
             /*TODO: Eliminar clientes de listas al desconectar*/
@@ -295,7 +294,7 @@ int main(int argc, char* argv[]){
                     recibido = recibir_mensaje(ep_eventos[i].data.fd,efd);
                     if(recibido == NULL) break;
 
-                    procesar_mensajes_tipo_A(recibido,ep_eventos->data.fd);
+                    procesar_mensajes_tipo_A(recibido,ep_eventos[i].data.fd);
                     
                     free(recibido);
                     break;
@@ -309,10 +308,10 @@ int main(int argc, char* argv[]){
             cp = SLIST_FIRST(&clientes_B_head);
             while(cp!=NULL){
                 if(ep_eventos[i].data.fd == cp->sfd){
-                    recibido = recibir_mensaje(ep_eventos->data.fd,efd);
+                    recibido = recibir_mensaje(ep_eventos[i].data.fd,efd);
                     if(recibido == NULL) break;
                     
-                    procesar_mensajes_tipo_B(recibido,ep_eventos->data.fd);
+                    procesar_mensajes_tipo_B(recibido,ep_eventos[i].data.fd);
                     
                     free(recibido);
                     break;
@@ -321,13 +320,21 @@ int main(int argc, char* argv[]){
             }
             if(cp!=NULL) continue;            
             
-            // Por descarte, tiene que ser cliente C
-            recibido = recibir_mensaje(ep_eventos->data.fd,efd);
-            if(recibido == NULL) continue;
+            cp = SLIST_FIRST(&clientes_C_head);
+            while(cp!=NULL){
+                // Por descarte, tiene que ser cliente C
+                if(ep_eventos[i].data.fd == cp->sfd){
+                    recibido = recibir_mensaje(ep_eventos[i].data.fd,efd);
+                    if(recibido == NULL) continue;
 
-            procesar_mensajes_tipo_C(recibido,ep_eventos->data.fd);
+                    procesar_mensajes_tipo_C(recibido,ep_eventos[i].data.fd);
 
-            free(recibido);
+                    free(recibido);
+                    break;    
+                }
+                cp = SLIST_NEXT(cp,clientes);
+            }
+                        
         }
 
         /* 
@@ -387,7 +394,7 @@ void aceptar_cliente_y_agregar_a_estructuras(int list_sfd, struct sockaddr* addr
                                             int efd, struct clientes_head* ch_p){
     int new_sfd = accept(list_sfd,addr_p,addr_len_p);
     if(new_sfd == -1){
-        perror("Error aceptando cliente_C");
+        perror("Error aceptando cliente");
         exit(1);
     }
     agregar_cliente_a_lista(ch_p,new_sfd);
@@ -523,7 +530,7 @@ int crear_y_bindear_unix_socket(const char* socket_path){
     }
 
     /*Listen*/
-    if(listen(un_sfd,1)==-1){
+    if(listen(un_sfd,MAX_EV)==-1){
         perror("Error while listening: ");
         exit(1);
     }
@@ -637,7 +644,7 @@ int crear_y_bindear_inet_socket(const char* ip, uint16_t port){
     }
 
     /*Listen*/
-    if(listen(in_sfd,1)==-1){
+    if(listen(in_sfd,MAX_EV)==-1){
         perror("Error while listening: ");
         exit(1);
     }
@@ -750,7 +757,7 @@ int crear_y_bindear_inet6_socket(const char* ip, uint16_t port){
     }
 
     /*Listen*/
-    if(listen(in6_sfd,1)==-1){
+    if(listen(in6_sfd,MAX_EV)==-1){
         perror("Error while listening: ");
         exit(1);
     }
