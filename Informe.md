@@ -35,6 +35,8 @@ Luego, hay dos escenarios posibles:
   - El sfd que retorna epoll es un listener -> Se acepta la conexion y se agrega el nuevo sfd obtenido a epoll y a la lista de clientes correspondiente.
   - El sfd que retorna epoll no es un listener -> Se busca en las listas a qué tipo de cliente corresponde, y se actúa en consecuencia. 
 
+La maxima cantidad de clientes soportados al mismo tiempo es de 65536 clientes y se hace uso de setrlimit para setear este valor. No se puede usar valgrind con esta consideración (ver apartado Cppcheck y Valgrind).
+
 ## Comunicaciones
 
 Para mantener homogeneidad en cuanto al paso de mensajes entre los mensajes en formato string y en formato binario, se emplea una interfaz que encapsula a los datos. Trabaja todo como datos en binario.
@@ -94,7 +96,7 @@ Los códigos no tienen errores de cppcheck ni valgrind. No está probado valgrin
 
 Para usar con valgrind, hay que setear una variable de entorno como "VALGRIND=YES" ya sea en un archivo de configuracion o antes del programa. e.g.
 
-    VALGRIND=YES ./Servidor
+    VALGRIND=YES valgrind ./Servidor
 
 Esto se debe a que valgrind no se lleva bien con setrlimit (metodo usado para soportar más de 1024 conexiones), por lo que, de usar esta opcion, se deja el máximo por default (1024 file descriptors) pero se puede controlar con valgrind el manejo de memoria.
 
