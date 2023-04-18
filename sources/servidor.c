@@ -31,7 +31,7 @@
 #define CADENA_SIZE                                 N_BYTES_TO_RECEIVE
 #define FECHA_SIZE                                  20
 
-void    configurar_at_exit_y_sigint                 ();
+void    configurar_at_exit_y_sigint                 (void);
 void    crear_archivo_si_no_existe                  (const char* path);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -68,14 +68,14 @@ void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
 
 #define VALGRIND_ENV_NAME          "VALGRIND"
 #define MAX_EV                         65536
-#define S_LIMIT_FOPEN                1048576
-#define H_LIMIT_FOPEN                1048576
+#define S_LIMIT_FOPEN                  65600
+#define H_LIMIT_FOPEN                  65600
 
 int         crear_y_bindear_unix_socket             (const char* socket_path);
 int         crear_y_bindear_inet_socket             (const char* ip, uint16_t port);//,uint16_t port);
 int         crear_y_bindear_inet6_socket            (const char* ip, uint16_t port);
 void        agregar_socket_a_epoll                  (int efd, int sfd);
-void        aumentar_limite_de_archivos_abiertos    ();
+void        aumentar_limite_de_archivos_abiertos    (void);
 void        aceptar_cliente_y_agregar_a_estructuras (int list_sfd, struct sockaddr* addr_p, unsigned int* addr_len_p, 
                                                      int efd, struct clientes_head* ch_p);
 char*       recibir_mensaje                         (int sfd, int efd);
@@ -92,7 +92,7 @@ void                responder_mensaje_tipo_A                    (char* response,
 char*               armar_respuesta_tipo_A                      (char* response);
 void                enviar_respuesta_tipo_A                     (char* respuesta, int sfd);
 void                loguear_cliente_tipo_A                      (char* cadena);
-void                imprimir_cantidad_de_mensajes_recibidos     ();
+void                imprimir_cantidad_de_mensajes_recibidos     (void);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente B
@@ -101,9 +101,9 @@ void                imprimir_cantidad_de_mensajes_recibidos     ();
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
 void    procesar_mensajes_tipo_B                    (char* mensaje, int sfd);
-void    comprimir_resultado(char* a_comprimir);
-void    responder_mensaje_tipo_B(int sfd, char* resultado);
-void    enviar_comprimido(int sfd);
+void    comprimir_resultado                         (char* a_comprimir);
+void    responder_mensaje_tipo_B                    (int sfd, char* resultado);
+void    enviar_comprimido                           (int sfd);
 void    loguear_cliente_tipo_B                      (char* cadena);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -113,10 +113,10 @@ int     establecer_comunicacion_clientes_tipo_C     (const char* ip, uint16_t po
 void    procesar_mensajes_tipo_C                    (char* mensaje, int sfd);
 void    loguear_cliente_tipo_C                      (char* cadena);
 void    responder_mensajes_tipo_C                   (int sfd);
-float   obtener_carga_normalizada                   ();
-int     obtener_cpu_cores                           ();
-float   obtener_carga                               ();
-int     obtener_memoria_libre                       ();
+float   obtener_carga_normalizada                   (void);
+int     obtener_cpu_cores                           (void);
+float   obtener_carga                               (void);
+int     obtener_memoria_libre                       (void);
 void    leer_archivo                                (char* path, char* buffer);
 char*   armar_respuesta_tipo_C                      (float carga_normalizada, int memoria_libre);
 void    enviar_respuesta_tipo_C                     (char* mensaje, int sfd);
@@ -126,7 +126,7 @@ void    enviar_respuesta_tipo_C                     (char* mensaje, int sfd);
 
 void    loguear                                     (char* cadena);
 void    loguear_mensaje_cliente                     (char tipo,char* mensaje);
-char*   obtener_fecha                               ();
+char*   obtener_fecha                               (void);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a obtener la salida de journalctl
@@ -352,7 +352,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-void configurar_at_exit_y_sigint(){
+void configurar_at_exit_y_sigint(void){
     if(atexit(limpiar_comunicaciones)!=0){
         perror("Error seteando at_exit");
         exit(1);
@@ -450,7 +450,7 @@ void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
 
 
 
-void aumentar_limite_de_archivos_abiertos(){
+void aumentar_limite_de_archivos_abiertos(void){
     struct rlimit new_limits;
     new_limits.rlim_cur = S_LIMIT_FOPEN;
     new_limits.rlim_max = H_LIMIT_FOPEN;
@@ -788,14 +788,14 @@ void responder_mensajes_tipo_C(int sfd){
     return;
 }
 
-float obtener_carga_normalizada(){
+float obtener_carga_normalizada(void){
     float carga = obtener_carga();
     int n_cores = obtener_cpu_cores();
     return carga/(float)n_cores;
 }
 #define BUFFER_PROC_SIZE 2048
 
-int obtener_cpu_cores(){
+int obtener_cpu_cores(void){
     char buffer[BUFFER_PROC_SIZE], *match;
     int n_cores;
     
@@ -806,7 +806,7 @@ int obtener_cpu_cores(){
     return n_cores;
 }
 
-float obtener_carga(){
+float obtener_carga(void){
     char buffer[BUFFER_PROC_SIZE];
     float carga, aux1, aux2;
     
@@ -816,7 +816,7 @@ float obtener_carga(){
     return carga;
 }
 
-int obtener_memoria_libre(){
+int obtener_memoria_libre(void){
     char buffer[BUFFER_PROC_SIZE], *match;
     int mem_libre;
 
@@ -912,7 +912,7 @@ void loguear_cliente_tipo_C(char* cadena){
  * https://stackoverflow.com/questions/1442116/how-to-get-the-date-and-time-values-in-a-c-program
  * 
 */
-char* obtener_fecha(){
+char* obtener_fecha(void){
     char* fecha = calloc(sizeof(char),FECHA_SIZE);
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -955,7 +955,7 @@ void loguear(char* cadena){
     }
 }
 
-void imprimir_cantidad_de_mensajes_recibidos(){
+void imprimir_cantidad_de_mensajes_recibidos(void){
     printf("\t\t\t\t\tA\tB\tC\n");
     printf("Mensajes recibidos: \t\t\t%d\t%d\t%d\n",n_mensajes_tipo_A,n_mensajes_tipo_B,n_mensajes_tipo_C);
     printf("Total: %d\n",n_mensajes_tipo_A+n_mensajes_tipo_B+n_mensajes_tipo_C);

@@ -12,10 +12,10 @@
 char*   leer_archivo_dinamicamente                              (const char* path);
 int     comprobar_sintaxis_archivo_configuracion                (char* buffer);
 void    cargar_variables_de_entorno                             (char* buffer);
-void    imprimir_mensaje_error_sintaxis_archivo_configuracion   ();
+void    imprimir_mensaje_error_sintaxis_archivo_configuracion   (void);
 void    verificar_archivo_y_cargar_variables_de_entorno         (const char* path);
 
-void comprobar_variables_entorno(){
+void comprobar_variables_entorno(void){
     printf("Variables configuradas por default: \n");
     comprobar_variables_entorno_A();
     comprobar_variables_entorno_B();
@@ -24,7 +24,7 @@ void comprobar_variables_entorno(){
     printf("\n");
 }
 
-void comprobar_variables_entorno_A(){
+void comprobar_variables_entorno_A(void){
 
     if(getenv(UNIX_PATH_ENV_NAME)==NULL){
         setenv(UNIX_PATH_ENV_NAME,UNIX_PATH_DEFAULT,0);
@@ -33,7 +33,7 @@ void comprobar_variables_entorno_A(){
     return;
 }
 
-void comprobar_variables_entorno_B(){
+void comprobar_variables_entorno_B(void){
     if(getenv(IPV4_IP_ENV_NAME)==NULL){
         setenv(IPV4_IP_ENV_NAME,IPV4_IP_DEFAULT,0);
         printf("%s=%s\n",IPV4_IP_ENV_NAME,IPV4_IP_DEFAULT);
@@ -49,7 +49,7 @@ void comprobar_variables_entorno_B(){
     return;
 }
 
-void comprobar_variables_entorno_C(){
+void comprobar_variables_entorno_C(void){
     if(getenv(IPV6_IP_ENV_NAME)==NULL){
         setenv(IPV6_IP_ENV_NAME,IPV6_IP_DEFAULT,0);
         printf("%s=%s\n",IPV6_IP_ENV_NAME,IPV6_IP_DEFAULT);
@@ -61,7 +61,7 @@ void comprobar_variables_entorno_C(){
     return;
 }
 
-void comprobar_variables_entorno_log(){
+void comprobar_variables_entorno_log(void){
     if(getenv(LOG_PATH_ENV_NAME)==NULL){
         setenv(LOG_PATH_ENV_NAME,LOG_PATH_DEFAULT,0);
         printf("%s=%s\n",LOG_PATH_ENV_NAME,LOG_PATH_DEFAULT);
@@ -118,7 +118,7 @@ void cargar_variables_de_entorno(char* buffer){
     printf("\n");
 }
 
-void imprimir_mensaje_error_sintaxis_archivo_configuracion(){
+void imprimir_mensaje_error_sintaxis_archivo_configuracion(void){
     printf("Error en la sintaxis del archivo de configuracion\n");
     printf("Debe ser lineas de la siguiente forma:\tKEY=Value\n");
     printf("KEY debe estar en mayusculas. Puede contener el caracter '_'. Value es libre\n\n");

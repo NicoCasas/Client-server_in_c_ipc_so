@@ -30,14 +30,11 @@ void    enviar_mensaje      (char* cadena, int sfd);
 char*   obtener_mensaje     (void);
 void    imprimir_resumen    (char* respuesta);
 
-void    configurar_sigint();
+void    configurar_sigint   (void);
 
 #define CLIENTE_A_PROMPT "Cliente_C: "
-void leer_cadena_de_command_line(char *cadena);
-
-
-
-int establecer_comunicacion_con_servidor    (void);
+void    leer_cadena_de_command_line             (char *cadena);
+int     establecer_comunicacion_con_servidor    (void);
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -110,7 +107,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-void configurar_sigint(){
+void configurar_sigint(void){
     struct sigaction sa;
     memset(&sa,0,sizeof(sa));
     sa.sa_handler = sigint_handler;

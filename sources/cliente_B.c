@@ -29,19 +29,17 @@
 #define COMPRESSED_FILE_EXTENSION    ".txt.gz"
 #define LEN_COMPRESSED_FILE_EXTENSION       7
 
-void crear_path_archivos_comprimidos(void);
-void enviar_mensaje(char* cadena, int sfd);
-char* obtener_mensaje(void);
-void configurar_sigint();
-void procesar_respuesta(char* respuesta, size_t len_respuesta);
-char* obtener_fecha();
+void    crear_path_archivos_comprimidos         (void);
+char*   obtener_mensaje                         (void);
+void    enviar_mensaje                          (char* cadena, int sfd);
+void    configurar_sigint                       (void);
+void    procesar_respuesta                      (char* respuesta, size_t len_respuesta);
+char*   obtener_fecha                           (void);
 
 #define CLIENTE_A_PROMPT "Cliente_B: "
-void leer_cadena_de_command_line(char *cadena);
+void    leer_cadena_de_command_line             (char *cadena);
 
-
-
-int establecer_comunicacion_con_servidor    (void);
+int     establecer_comunicacion_con_servidor    (void);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a al clean-up at exit
@@ -161,7 +159,7 @@ void procesar_respuesta(char* respuesta, size_t len_respuesta){
  * https://stackoverflow.com/questions/1442116/how-to-get-the-date-and-time-values-in-a-c-program
  * 
 */
-char* obtener_fecha(){
+char* obtener_fecha(void){
     char* fecha = calloc(sizeof(char),FECHA_SIZE);
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -170,7 +168,7 @@ char* obtener_fecha(){
     return fecha;
 }
 
-void configurar_sigint(){
+void configurar_sigint(void){
     struct sigaction sa;
     memset(&sa,0,sizeof(sa));
     sa.sa_handler = sigint_handler;

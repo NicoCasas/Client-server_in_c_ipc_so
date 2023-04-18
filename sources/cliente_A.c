@@ -25,14 +25,13 @@
 
 void    enviar_mensaje          (char* cadena, int sfd);
 char*   obtener_mensaje         (void);
-void    configurar_sigint       ();
+void    configurar_sigint       (void);
 size_t  leer_meminfo            (char* mensaje);
 void    free_matrix             (char** matrix);
 
 #define CLIENTE_A_PROMPT "Cliente_A: "
-void leer_cadena_de_command_line(char *cadena);
-
-int establecer_comunicacion_con_servidor    (void);
+void    leer_cadena_de_command_line             (char *cadena);
+int     establecer_comunicacion_con_servidor    (void);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a al clean-up at exit
@@ -114,7 +113,7 @@ size_t leer_meminfo(char* mensaje){
     return bytes_read;
 }
 
-void configurar_sigint(){
+void configurar_sigint(void){
     struct sigaction sa;
     memset(&sa,0,sizeof(sa));
     sa.sa_handler = sigint_handler;

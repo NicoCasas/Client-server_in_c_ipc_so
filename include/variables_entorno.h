@@ -33,9 +33,9 @@
 
 
 /*FUNCTIONS DEFINITION*/
-void comprobar_variables_entorno                        ();
-void comprobar_variables_entorno_A                      ();
-void comprobar_variables_entorno_B                      ();
-void comprobar_variables_entorno_C                      ();
-void comprobar_variables_entorno_log                    ();
+void comprobar_variables_entorno                        (void);
+void comprobar_variables_entorno_A                      (void);
+void comprobar_variables_entorno_B                      (void);
+void comprobar_variables_entorno_C                      (void);
+void comprobar_variables_entorno_log                    (void);
 void cargar_variables_de_entorno_de_archivo             (const char* path);
