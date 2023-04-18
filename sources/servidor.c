@@ -59,9 +59,6 @@ SLIST_HEAD(clientes_head,cliente);
 struct clientes_head clientes_A_head;
 struct clientes_head clientes_B_head;
 struct clientes_head clientes_C_head;
-/* SLIST_HEAD(clientes_A_head,cliente);
-SLIST_HEAD(clientes_B_head,cliente);
-SLIST_HEAD(clientes_C_head,cliente); */
 
 void agregar_cliente_a_lista    (struct clientes_head* clientes_head_p, int sfd);
 void eliminar_lista_clientes    (struct clientes_head* clientes_head_p);
@@ -82,7 +79,6 @@ char*       recibir_mensaje                         (int sfd, int efd);
 void        enviar_mensaje_a_lista_clientes         (struct clientes_head* ch_p);
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente A
-//TODO Definir variables de entorno y poner un path como la gente. Se puede usar mktemp
 
 #define MAX_SIZE_CL_A (1<<28)  // 256 MB
 
@@ -96,7 +92,7 @@ void                imprimir_cantidad_de_mensajes_recibidos     (void);
 
 //////////////////////////////////////////////////////////////////////////////
 /// Referido a cliente B
-
+#define TEMPORARY_COMPRESS_PATH   "compress.z"        //Path auxiliar para comprimir. Luego se elimina
 #define MAX_SIZE_CL_B (1<<30)  // 1 GB
 
 int     establecer_comunicacion_clientes_tipo_B     (const char* ip, uint16_t port);
@@ -184,7 +180,6 @@ void sigint_handler(int num){
 //////////////////////////////////////MAIN///////////////////////////////////////
 
 int main(int argc, char* argv[]){
-    //struct listener* listener_cliente_A = NULL;
     struct sockaddr_un cliente_A_addr;
     int listener_cliente_A_sfd;
     
@@ -285,8 +280,6 @@ int main(int argc, char* argv[]){
             }        
             /* En caso de ser otro listener */
 
-            /*TODO: Eliminar clientes de listas al desconectar*/
-
             /* En caso de ser de una conexion establecida de un cliente_A, leemos y procesamos el mensaje*/
             cp = SLIST_FIRST(&clientes_A_head);
             while(cp!=NULL){
@@ -322,7 +315,6 @@ int main(int argc, char* argv[]){
             
             cp = SLIST_FIRST(&clientes_C_head);
             while(cp!=NULL){
-                // Por descarte, tiene que ser cliente C
                 if(ep_eventos[i].data.fd == cp->sfd){
                     recibido = recibir_mensaje(ep_eventos[i].data.fd,efd);
                     if(recibido == NULL) continue;
@@ -336,17 +328,7 @@ int main(int argc, char* argv[]){
             }
                         
         }
-
-        /* 
-        printf("Recibo: \n");
-        for(ssize_t i=0; i<bytes_read; i++){
-            printf("%02hhx",msg[i]);
-        }
-        printf("\n"); */
-
-        //procesar_mensajes_tipo_A();
-        //procesar_mensajes_tipo_B(g_msgq_id);
-        //procesar_mensajes_tipo_C(shm_p);
+        
     }
 
     return 0;
@@ -359,7 +341,7 @@ void configurar_at_exit_y_sigint(void){
     }
 
     struct sigaction sa;
-    memset(&sa,0,sizeof(sa));           //Para no tener errores de valgrind
+    memset(&sa,0,sizeof(sa));
     sa.sa_handler = sigint_handler;
 
     sigaction(SIGINT, &sa, NULL);
@@ -400,29 +382,6 @@ void aceptar_cliente_y_agregar_a_estructuras(int list_sfd, struct sockaddr* addr
     agregar_cliente_a_lista(ch_p,new_sfd);
     agregar_socket_a_epoll(efd,new_sfd);
 }
-
-// Esto habia sido para practicar iteracion en lista
-/* 
-void eliminar_lista_clientes(struct clientes_head* clientes_head_p){
-    
-    struct cliente* cp = NULL;
-    struct cliente* cp_aux = NULL;
-
-    cp = SLIST_FIRST(clientes_head_p);
-    while(cp!=NULL){
-        //Keep aux
-        cp_aux = SLIST_NEXT(cp,clientes);
-        //Do stuff
-        SLIST_REMOVE(clientes_head_p,cp,cliente,clientes);
-        free(cp);
-        //Move on
-        cp = cp_aux;
-    }
-
-    return;
-
-}
- */
 
 void enviar_mensaje_a_lista_clientes(struct clientes_head* ch_p){
     struct cliente* cp  = NULL;
@@ -545,7 +504,6 @@ void procesar_mensajes_tipo_A(char* mensaje, int sfd){
 
     loguear_cliente_tipo_A(mensaje);
 
-    //TODO armar mensaje error y enviarlo en caso de ser comando invalido
     requests = cJSON_get_requests(mensaje,NULL);
     resultado = get_output_journalctl_command(requests[0],MAX_SIZE_CL_A);
     if(resultado == NULL){
@@ -658,7 +616,6 @@ void procesar_mensajes_tipo_B(char* mensaje, int sfd){
 
     loguear_cliente_tipo_B(mensaje);
 
-    //TODO armar mensaje error y enviarlo en caso de ser comando invalido
     requests = cJSON_get_requests(mensaje,NULL);
     resultado = get_output_journalctl_command(requests[0],MAX_SIZE_CL_B);
     if(resultado == NULL){
@@ -675,22 +632,21 @@ void procesar_mensajes_tipo_B(char* mensaje, int sfd){
     return;
 }
 
-#define COMPRESS_PATH   "compress.z"
 void comprimir_resultado(char* a_comprimir){
-    compress_one_file_from_var(a_comprimir, (unsigned int) strlen(a_comprimir), COMPRESS_PATH);
+    compress_one_file_from_var(a_comprimir, (unsigned int) strlen(a_comprimir), TEMPORARY_COMPRESS_PATH);
 }
 
 void responder_mensaje_tipo_B(int sfd, char* resultado){
     comprimir_resultado(resultado);
     enviar_comprimido(sfd);
-    if(remove(COMPRESS_PATH)==-1){
+    if(remove(TEMPORARY_COMPRESS_PATH)==-1){
         perror("Error while removing compressed log: ");
         exit(1);
     }
 }
 
 void enviar_comprimido(int sfd){
-    FILE* fp = fopen(COMPRESS_PATH,"rb");
+    FILE* fp = fopen(TEMPORARY_COMPRESS_PATH,"rb");
     size_t num_read = 0;
     char buffer[MSG_DATA_SIZE];
     unsigned int count = 0;

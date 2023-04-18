@@ -1,7 +1,6 @@
 /**
- * Cliente que usa AF_UNIX sockets
+ * Cliente que usa AF_INET6 sockets
 */
-/* #define _XOPEN_SOURCE 700 */
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -65,7 +64,7 @@ int main(int argc, char* argv[]){
 
     cargar_variables_de_entorno_de_archivo(config_path);
     comprobar_variables_entorno_C();   
-    //Falta comprobar y cargar las que correspondan
+
     sfd = establecer_comunicacion_con_servidor();
 
     while(1){

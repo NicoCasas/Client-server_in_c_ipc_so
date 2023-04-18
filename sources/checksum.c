@@ -15,16 +15,6 @@ static void*   realloc_safe(void* ptr, size_t size);
 static ssize_t send_safe(int fd, const void* buf, size_t n, int flags);
 
 
-/* void separar_checksum(char* a_enviar,char* mensaje, unsigned char* checksum){
-    size_t n;
-    char* aux = index(a_enviar,'|');
-    n = strlen(a_enviar)-strlen(aux);
-    strncpy(mensaje,a_enviar,n);
-    mensaje[n]='\0';
-    aux += sizeof(char);
-    strcpy((char *)checksum,aux);
-} */
-
 // https://linux.die.net/man/3/evp_digestinit
 // https://wiki.openssl.org/index.php/EVP_Message_Digests
 void obtener_checksum(const void *mensaje, size_t msg_len, unsigned char* checksum,unsigned int* md_len_p){
@@ -40,23 +30,6 @@ void obtener_checksum(const void *mensaje, size_t msg_len, unsigned char* checks
     EVP_MD_CTX_free(mdctx);
 
 }
-
-/* int comprobar_checksum(char* msg, size_t len,unsigned char* md_value){
-    unsigned char new_md_value[DIGEST_SIZE];
-    unsigned int md_len;
-    memset(new_md_value,0,DIGEST_SIZE);
-    obtener_checksum(msg,len-DIGEST_SIZE,new_md_value,&md_len);
-
-    for(int i=0;i<DIGEST_SIZE;i++){
-        if(md_value[i]!=new_md_value[i]){
-            return 0;
-        }
-    }
-
-    return 1;
-
-}
- */
 
 char* get_msg_to_transmit(unsigned int type,unsigned int n_order,unsigned int len_data,void* data, size_t* len_msg_p){
     unsigned char md_value[DIGEST_SIZE];
@@ -303,3 +276,10 @@ ssize_t receive_data_and_checksum(int sfd,char* msg, unsigned int* data_len_p){
     return bytes_read;
 }
 
+/* 
+    printf("Recibo: \n");
+    for(ssize_t i=0; i<bytes_read; i++){
+        printf("%02hhx",msg[i]);
+    }
+    printf("\n"); 
+*/

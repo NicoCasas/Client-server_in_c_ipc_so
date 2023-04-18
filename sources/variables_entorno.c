@@ -9,11 +9,11 @@
 #define REGEX_CONFIG    "^([A-Z_][A-Z0-9_]*=[^ \n][^\n]*\n?)*$"
 
 //Definicion de funciones que no quiero que se vean desde afuera
-char*   leer_archivo_dinamicamente                              (const char* path);
-int     comprobar_sintaxis_archivo_configuracion                (char* buffer);
-void    cargar_variables_de_entorno                             (char* buffer);
-void    imprimir_mensaje_error_sintaxis_archivo_configuracion   (void);
-void    verificar_archivo_y_cargar_variables_de_entorno         (const char* path);
+static char*   leer_archivo_dinamicamente                              (const char* path);
+static int     comprobar_sintaxis_archivo_configuracion                (char* buffer);
+static void    cargar_variables_de_entorno                             (char* buffer);
+static void    imprimir_mensaje_error_sintaxis_archivo_configuracion   (void);
+static void    verificar_archivo_y_cargar_variables_de_entorno         (const char* path);
 
 void comprobar_variables_entorno(void){
     printf("Variables configuradas por default: \n");
@@ -73,7 +73,7 @@ void cargar_variables_de_entorno_de_archivo(const char* path){
     verificar_archivo_y_cargar_variables_de_entorno(path);
 }
 
-void verificar_archivo_y_cargar_variables_de_entorno(const char* path){
+static void verificar_archivo_y_cargar_variables_de_entorno(const char* path){
     char* buffer = NULL;    
 
     printf("\nLeyendo variables del archivo de configuracion: %s\n\n",path);
@@ -90,7 +90,7 @@ void verificar_archivo_y_cargar_variables_de_entorno(const char* path){
 }
 
 
-void cargar_variables_de_entorno(char* buffer){
+static void cargar_variables_de_entorno(char* buffer){
     char* aux;
     char* separator_pos;
 
@@ -118,13 +118,13 @@ void cargar_variables_de_entorno(char* buffer){
     printf("\n");
 }
 
-void imprimir_mensaje_error_sintaxis_archivo_configuracion(void){
+static void imprimir_mensaje_error_sintaxis_archivo_configuracion(void){
     printf("Error en la sintaxis del archivo de configuracion\n");
     printf("Debe ser lineas de la siguiente forma:\tKEY=Value\n");
     printf("KEY debe estar en mayusculas. Puede contener el caracter '_'. Value es libre\n\n");
 }
 
-char* leer_archivo_dinamicamente(const char* path){
+static char* leer_archivo_dinamicamente(const char* path){
     FILE* fp;
     long size;
     char* buffer = NULL;
@@ -159,7 +159,7 @@ char* leer_archivo_dinamicamente(const char* path){
     return buffer;
 }
 
-int comprobar_sintaxis_archivo_configuracion(char* buffer){
+static int comprobar_sintaxis_archivo_configuracion(char* buffer){
     regex_t regex;
     int resultado;
 
