@@ -110,8 +110,9 @@ Se usa la misma logica empleada en el tp anterior
 
 ## Tests implementados
 
-Hay 4 tests:
-- test_cliente_A.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_A, pasarle un comando de journalctl, recibir la respuesta y comparar la ejecucion del comando en una bash, con la respuesta que recibe el cliente.
-- test_cliente_B.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_B, pasarle un comando de journalctl, recibir la respuesta comprimida, y por bash descomprimir el archivo para posteriormente con comparar la ejecucion del comando.
-- test_cliente_C.sh -> Mismo procedimiento que los anteriores, pero compara las respuestas dadas por el servidor con los valores suministrados por /proc/loadavg y /proc/meminfo. Si bien para la memoria libre se considera un error, este test puede fallar si entre el pedido al servidor y la comprobacion contra el /proc, los valores varian un poco más de lo considerado.
+En la carpeta test se encuentran 4 scripts de bash que sirven de tests. Constan de lo siguiente:
+
+- test_cliente_A.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_A, pasarle un comando de journalctl, recibir la respuesta y compararla con la ejecucion del comando en una bash.
+- test_cliente_B.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_B, pasarle un comando de journalctl, recibir la respuesta comprimida, y por bash descomprimir el archivo para posteriormente compararlo con la ejecucion del comando.
+- test_cliente_C.sh -> Mismo procedimiento que los anteriores, pero compara las respuestas dadas por el servidor con los valores suministrados por /proc/loadavg y /proc/meminfo. Cabe destacar que si bien para la memoria libre se considera un error, este test puede fallar si entre el pedido al servidor y la comprobacion contra el /proc, los valores varian un poco más de lo considerado.
 - test_multiples_clientes -> Levanta N_A clientes_A, N_B clientes_B y N_C clientes_C. Luego, a través del parseo de la salida del servidor, se verifica que la cantidad de mensajes provenientes de clientes unicos (via pid) sea igual a la suma de N_A+N_B+N_C. Además, se controla que la cantidad de archivos comprimidos sea igual a N_B.
