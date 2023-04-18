@@ -16,7 +16,6 @@ COMANDO_B="journalctl -u ondemand.service"
 # Definimos carpetas para tests
 TEST_DIR="./test_multiples_clientes"
 COMPRESS_PATH="${TEST_DIR}/compress_files/"
-echo "COMPRESS_PATH: ${COMPRESS_PATH}"
 export COMPRESS_PATH
 
 # Definimos el tiempo de ejecucion
@@ -72,5 +71,5 @@ N_ARCHIVOS_COMPRIMIDOS=$(ls ${COMPRESS_PATH} | wc | awk '{print $1}')
 #echo "N_ARCHIVOS_COMPRIMIDOS: ${N_ARCHIVOS_COMPRIMIDOS}"
 
 [[ ${N_PROCESOS_CONECTADOS} == $((${N_A}+${N_B}+${N_C})) ]] && [[ ${N_ARCHIVOS_COMPRIMIDOS} == ${N_B} ]] && echo "MULTIPLES CLIENTES: TEST_PASSED" || echo "MULTIPLES CLIENTES: TEST FAILED"
-[ ${BORRAR_LOGS} == 1 ] && (rm ${TEST_DIR}/*.log; rm ${TEST_DIR/*.txt}; rm -rf ${TEST_DIR}/ 2>/dev/null)
+[ ${BORRAR_LOGS} == 1 ] && (rm ${TEST_DIR}/*.log; rm ${TEST_DIR}/*.txt; rm -rf ${TEST_DIR}/ )
 
