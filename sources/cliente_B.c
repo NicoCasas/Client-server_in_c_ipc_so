@@ -25,7 +25,7 @@
 
 
 #define FECHA_SIZE 20
-#define CADENA_SIZE 64
+#define CADENA_SIZE 128
 #define COMPRESSED_FILE_EXTENSION    ".txt.gz"
 #define LEN_COMPRESSED_FILE_EXTENSION       7
 
