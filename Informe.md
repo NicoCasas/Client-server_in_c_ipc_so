@@ -91,3 +91,25 @@ Aprovechando que xubuntu (la distribución que uso) tiene esta funcionalidad, lo
 ## Cppcheck y Valgrind
 
 Los códigos no tienen errores de cppcheck ni valgrind. No está probado valgrind para contenidos de journalctl mayores a 2 MB.
+
+Para usar con valgrind, hay que setear una variable de entorno como "VALGRIND=YES" ya sea en un archivo de configuracion o antes del programa. e.g.
+
+    VALGRIND=YES ./Servidor
+
+Esto se debe a que valgrind no se lleva bien con setrlimit (metodo usado para soportar más de 1024 conexiones), por lo que, de usar esta opcion, se deja el máximo por default (1024 file descriptors) pero se puede controlar con valgrind el manejo de memoria.
+
+## Aviso ante error del servidor
+
+Para esto, se usa una funcion at_exit que envia un mensaje de error recorriendo las listas de conexiones. Luego se cierran los sfd correspondientes y se eliminan las listas antes de terminar el programa.
+
+## Variables de entorno
+
+Se usa la misma logica empleada en el tp anterior
+
+## Tests implementados
+
+Hay 4 tests:
+- test_cliente_A.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_A, pasarle un comando de journalctl, recibir la respuesta y comparar la ejecucion del comando en una bash, con la respuesta que recibe el cliente.
+- test_cliente_B.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_B, pasarle un comando de journalctl, recibir la respuesta comprimida, y por bash descomprimir el archivo para posteriormente con comparar la ejecucion del comando.
+- test_cliente_C.sh -> Mismo procedimiento que los anteriores, pero compara las respuestas dadas por el servidor con los valores suministrados por /proc/loadavg y /proc/meminfo
+- test_multiples_clientes -> Levanta N_A clientes_A, N_B clientes_B y N_C clientes_C. Luego, a través del parseo de la salida del servidor, se verifica que la cantidad de mensajes provenientes de clientes unicos (via pid) sea igual a la suma de N_A+N_B+N_C. Además, se controla que la cantidad de archivos comprimidos sea igual a N_B.
