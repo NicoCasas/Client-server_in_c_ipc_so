@@ -551,7 +551,7 @@ char* armar_respuesta_tipo_A(char* response){
 
 void enviar_respuesta_tipo_A(char* respuesta, int sfd){
     ssize_t bytes_sended;
-    bytes_sended = send_data_msg(sfd,respuesta,strlen(respuesta),MSG_DONTWAIT);
+    bytes_sended = send_data_msg(sfd,respuesta,strlen(respuesta),0);
     if(bytes_sended==-1){
         perror("Error enviando mensaje tipo A");
         exit(1);
