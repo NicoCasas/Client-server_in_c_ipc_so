@@ -35,6 +35,8 @@ Luego, hay dos escenarios posibles:
   - El sfd que retorna epoll es un listener -> Se acepta la conexion y se agrega el nuevo sfd obtenido a epoll y a la lista de clientes correspondiente.
   - El sfd que retorna epoll no es un listener -> Se busca en las listas a qué tipo de cliente corresponde, y se actúa en consecuencia. 
 
+La maxima cantidad de clientes soportados al mismo tiempo es de 65536 clientes y se hace uso de setrlimit para setear este valor. No se puede usar valgrind con esta consideración (ver apartado Cppcheck y Valgrind).
+
 ## Comunicaciones
 
 Para mantener homogeneidad en cuanto al paso de mensajes entre los mensajes en formato string y en formato binario, se emplea una interfaz que encapsula a los datos. Trabaja todo como datos en binario.
@@ -94,7 +96,7 @@ Los códigos no tienen errores de cppcheck ni valgrind. No está probado valgrin
 
 Para usar con valgrind, hay que setear una variable de entorno como "VALGRIND=YES" ya sea en un archivo de configuracion o antes del programa. e.g.
 
-    VALGRIND=YES ./Servidor
+    VALGRIND=YES valgrind ./Servidor
 
 Esto se debe a que valgrind no se lleva bien con setrlimit (metodo usado para soportar más de 1024 conexiones), por lo que, de usar esta opcion, se deja el máximo por default (1024 file descriptors) pero se puede controlar con valgrind el manejo de memoria.
 
@@ -108,8 +110,9 @@ Se usa la misma logica empleada en el tp anterior
 
 ## Tests implementados
 
-Hay 4 tests:
-- test_cliente_A.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_A, pasarle un comando de journalctl, recibir la respuesta y comparar la ejecucion del comando en una bash, con la respuesta que recibe el cliente.
-- test_cliente_B.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_B, pasarle un comando de journalctl, recibir la respuesta comprimida, y por bash descomprimir el archivo para posteriormente con comparar la ejecucion del comando.
-- test_cliente_C.sh -> Mismo procedimiento que los anteriores, pero compara las respuestas dadas por el servidor con los valores suministrados por /proc/loadavg y /proc/meminfo
+En la carpeta test se encuentran 4 scripts de bash que sirven de tests. Constan de lo siguiente:
+
+- test_cliente_A.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_A, pasarle un comando de journalctl, recibir la respuesta y compararla con la ejecucion del comando en una bash.
+- test_cliente_B.sh -> Lo que hace este test es levantar el servidor, levantar un cliente_B, pasarle un comando de journalctl, recibir la respuesta comprimida, y por bash descomprimir el archivo para posteriormente compararlo con la ejecucion del comando.
+- test_cliente_C.sh -> Mismo procedimiento que los anteriores, pero compara las respuestas dadas por el servidor con los valores suministrados por /proc/loadavg y /proc/meminfo. Cabe destacar que si bien para la memoria libre se considera un error, este test puede fallar si entre el pedido al servidor y la comprobacion contra el /proc, los valores varian un poco más de lo considerado.
 - test_multiples_clientes -> Levanta N_A clientes_A, N_B clientes_B y N_C clientes_C. Luego, a través del parseo de la salida del servidor, se verifica que la cantidad de mensajes provenientes de clientes unicos (via pid) sea igual a la suma de N_A+N_B+N_C. Además, se controla que la cantidad de archivos comprimidos sea igual a N_B.
